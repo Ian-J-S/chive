@@ -54,21 +54,21 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                 // Skip events that are not KeyEventKind::Press
                 continue;
             }
+            // TODO - remove this once you get the other pane working
+            #[allow(clippy::single_match)]
             match app.current_pane {
                 CurrentPane::Local => match key.code {
-                    KeyCode::Char('q') => {
+                    KeyCode::Char('q') | KeyCode::Esc => {
                         return Ok(false);
                     }
-                    KeyCode::Char('j') => {
+                    KeyCode::Char('j') | KeyCode::Down => {
                         app.update_local_idx(1);
                     }
-                    KeyCode::Char('k') => {
+                    KeyCode::Char('k') | KeyCode::Up => {
                         app.update_local_idx(-1);
                     }
                     KeyCode::Char(' ') => {
-                        if let Err(e) = app.change_local_dir() {
-                            return Err(e);
-                        }
+                        app.change_local_dir()?
                     }
                     _ => {}
                 }
