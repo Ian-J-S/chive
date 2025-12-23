@@ -1,7 +1,8 @@
 use std::{env, io};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::fs::read_dir;
 use path_clean::PathClean;
+use ratatui::widgets::{ScrollbarState, ListState};
 
 pub enum CurrentPane {
     Local,
@@ -12,7 +13,10 @@ pub struct App {
     pub local_path: PathBuf,
     pub local_files: Vec<PathBuf>,
     pub local_idx: usize,
+    pub local_list_state: ListState,
+    pub local_scrollbar: ScrollbarState,
     pub current_pane: CurrentPane,
+    pub show_hidden: bool,
 }
 
 impl App {
@@ -21,6 +25,8 @@ impl App {
             local_path: std::env::current_dir().unwrap_or(PathBuf::from(".")),
             local_files: Vec::new(),
             local_idx: 0,
+            local_list_state: ListState::default(),
+            local_scrollbar: ScrollbarState::new(0).position(0),
             current_pane: CurrentPane::Local,
             show_hidden: false,
         }
@@ -30,7 +36,7 @@ impl App {
         let mut entries = read_dir(self.local_path.clone())?
             .map(|res| res.map(|e| e.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
-        
+     
         if !self.show_hidden {
             entries.retain(|p| {
                 !p.file_name().expect("No file name")
@@ -79,6 +85,11 @@ impl App {
 
     pub fn toggle_hidden_files(&mut self) -> io::Result<()> {
         self.show_hidden = !self.show_hidden;
+        self.local_files = self.get_local_files()?;
+        Ok(())
+    }
+
+    pub fn refresh(&mut self) -> io::Result<()> {
         self.local_files = self.get_local_files()?;
         Ok(())
     }

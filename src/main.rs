@@ -3,7 +3,7 @@ use std::{error::Error, io};
 use ratatui::{
     backend::{Backend, CrosstermBackend},
     crossterm::{
-        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEventKind},
+        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
         execute,
         terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
     },
@@ -45,8 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool> {
+    app.local_files = app.get_local_files().unwrap(); // TODO - should replace with some app.init function
     loop {
-        app.local_files = app.get_local_files().unwrap();
         terminal.draw(|f| ui(f, app))?;
 
         if let Event::Key(key) = event::read()? {
@@ -67,8 +67,14 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     KeyCode::Char('k') | KeyCode::Up => {
                         app.update_local_idx(-1);
                     }
+                    KeyCode::Char('r') => {
+                        app.refresh()?;
+                    }
                     KeyCode::Char(' ') => {
-                        app.change_local_dir()?
+                        app.change_local_dir()?;
+                    }
+                    KeyCode::Char('.') => {
+                        app.toggle_hidden_files()?;
                     }
                     _ => {}
                 }
