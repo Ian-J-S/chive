@@ -22,6 +22,7 @@ impl App {
             local_files: Vec::new(),
             local_idx: 0,
             current_pane: CurrentPane::Local,
+            show_hidden: false,
         }
     }
 
@@ -30,9 +31,14 @@ impl App {
             .map(|res| res.map(|e| e.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
         
+        if !self.show_hidden {
+            entries.retain(|p| {
+                !p.file_name().expect("No file name")
+                .to_string_lossy().starts_with(".")
+            });
+        }
         entries.sort();
         entries.insert(0, PathBuf::from(".."));
-        // entries.insert(0, self.local_path.parent().expect("No parent dir").to_path_buf());
 
         Ok(entries)
     }
@@ -60,11 +66,20 @@ impl App {
             env::current_dir()?.join(selected_path).clean()
         };
 
+        if !new_path.is_dir() {
+            return Ok(());
+        }
 
         self.local_path = new_path;
         self.local_files = self.get_local_files()?;
         self.local_idx = 0;
 
+        Ok(())
+    }
+
+    pub fn toggle_hidden_files(&mut self) -> io::Result<()> {
+        self.show_hidden = !self.show_hidden;
+        self.local_files = self.get_local_files()?;
         Ok(())
     }
 }
