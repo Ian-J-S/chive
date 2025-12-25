@@ -5,16 +5,16 @@ use path_clean::PathClean;
 use ratatui::widgets::{ScrollbarState, ListState};
 
 pub enum CurrentPane {
-    Local,
-    Remote,
+    Browser,
+    Archive,
 }
 
 pub struct App {
-    pub local_path: PathBuf,
-    pub local_files: Vec<PathBuf>,
-    pub local_idx: usize,
-    pub local_list_state: ListState,
-    pub local_scrollbar: ScrollbarState,
+    pub browser_path: PathBuf,
+    pub browser_files: Vec<PathBuf>,
+    pub browser_idx: usize,
+    pub browser_list_state: ListState,
+    pub browser_scrollbar: ScrollbarState,
     pub current_pane: CurrentPane,
     pub show_hidden: bool,
 }
@@ -22,18 +22,18 @@ pub struct App {
 impl App {
     pub fn new() -> Self {
         App {
-            local_path: std::env::current_dir().unwrap_or(PathBuf::from(".")),
-            local_files: Vec::new(),
-            local_idx: 0,
-            local_list_state: ListState::default(),
-            local_scrollbar: ScrollbarState::new(0).position(0),
-            current_pane: CurrentPane::Local,
+            browser_path: std::env::current_dir().unwrap_or(PathBuf::from(".")),
+            browser_files: Vec::new(),
+            browser_idx: 0,
+            browser_list_state: ListState::default(),
+            browser_scrollbar: ScrollbarState::new(0).position(0),
+            current_pane: CurrentPane::Browser,
             show_hidden: false,
         }
     }
 
-    pub fn get_local_files(&self) -> io::Result<Vec<PathBuf>> {
-        let mut entries = read_dir(self.local_path.clone())?
+    pub fn get_browser_files(&self) -> io::Result<Vec<PathBuf>> {
+        let mut entries = read_dir(self.browser_path.clone())?
             .map(|res| res.map(|e| e.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
      
@@ -49,23 +49,23 @@ impl App {
         Ok(entries)
     }
 
-    pub fn update_local_idx(&mut self, step: isize) {
+    pub fn update_browser_idx(&mut self, step: isize) {
         let new_idx = if step >= 0 {
-            self.local_idx.wrapping_add(step as usize) % self.local_files.len()
+            self.browser_idx.wrapping_add(step as usize) % self.browser_files.len()
         } else {
-            ((self.local_idx as isize + step)
-                .rem_euclid(self.local_files.len() as isize)) as usize
+            ((self.browser_idx as isize + step)
+                .rem_euclid(self.browser_files.len() as isize)) as usize
         };
 
-        self.local_idx = new_idx;
+        self.browser_idx = new_idx;
     }
 
-    pub fn change_local_dir(&mut self) -> io::Result<()> {
-        let selected_path = self.local_files[self.local_idx].clone();
+    pub fn change_browser_dir(&mut self) -> io::Result<()> {
+        let selected_path = self.browser_files[self.browser_idx].clone();
         let new_path = if selected_path.to_str()
             .expect("Unable to convert path to string") == ".." {
 
-            self.local_path.parent()
+            self.browser_path.parent()
                 .expect("No parent dir")
                 .to_path_buf()
         } else {
@@ -76,21 +76,21 @@ impl App {
             return Ok(());
         }
 
-        self.local_path = new_path;
-        self.local_files = self.get_local_files()?;
-        self.local_idx = 0;
+        self.browser_path = new_path;
+        self.browser_files = self.get_browser_files()?;
+        self.browser_idx = 0;
 
         Ok(())
     }
 
     pub fn toggle_hidden_files(&mut self) -> io::Result<()> {
         self.show_hidden = !self.show_hidden;
-        self.local_files = self.get_local_files()?;
+        self.browser_files = self.get_browser_files()?;
         Ok(())
     }
 
     pub fn refresh(&mut self) -> io::Result<()> {
-        self.local_files = self.get_local_files()?;
+        self.browser_files = self.get_browser_files()?;
         Ok(())
     }
 }

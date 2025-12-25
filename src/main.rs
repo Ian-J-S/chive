@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool> {
-    app.local_files = app.get_local_files().unwrap(); // TODO - should replace with some app.init function
+    app.browser_files = app.get_browser_files().unwrap(); // TODO - should replace with some app.init function
     loop {
         terminal.draw(|f| ui(f, app))?;
 
@@ -57,21 +57,21 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
             // TODO - remove this once you get the other pane working
             #[allow(clippy::single_match)]
             match app.current_pane {
-                CurrentPane::Local => match key.code {
+                CurrentPane::Browser => match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => {
                         return Ok(false);
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
-                        app.update_local_idx(1);
+                        app.update_browser_idx(1);
                     }
                     KeyCode::Char('k') | KeyCode::Up => {
-                        app.update_local_idx(-1);
+                        app.update_browser_idx(-1);
                     }
                     KeyCode::Char('r') => {
                         app.refresh()?;
                     }
                     KeyCode::Char(' ') => {
-                        app.change_local_dir()?;
+                        app.change_browser_dir()?;
                     }
                     KeyCode::Char('.') => {
                         app.toggle_hidden_files()?;

@@ -29,10 +29,10 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .block(Block::new().borders(Borders::ALL)),
         title_layout[0]);
 
-    // Render local files
+    // Render browser files
     let mut list_items = Vec::<ListItem>::new();
-    for (i, path) in app.local_files.iter().enumerate() {
-        let style = if i == app.local_idx {
+    for (i, path) in app.browser_files.iter().enumerate() {
+        let style = if i == app.browser_idx {
             Style::default().fg(tailwind::GREEN.c400)
             .bg(tailwind::SLATE.c900)
             .add_modifier(Modifier::BOLD)
@@ -60,13 +60,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     {
         // Show index and total number of files
         list_items.push(ListItem::new(Line::from(Span::styled(
-            format!("{} / {}", app.local_idx, app.local_files.len() - 1),
+            format!("{} / {}", app.browser_idx, app.browser_files.len() - 1),
             Style::default().fg(Color::White)
         ))));
 
         // Show current directory
         list_items.push(ListItem::new(Line::from(Span::styled(
-            format!("{}", app.local_path.to_string_lossy()),
+            format!("{}", app.browser_path.to_string_lossy()),
             Style::default().fg(Color::White)
         ))));
 
@@ -78,18 +78,18 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     }
 
     let list = List::new(list_items);
-    app.local_list_state.select(Some(app.local_idx));
+    app.browser_list_state.select(Some(app.browser_idx));
     frame.render_stateful_widget(
         list.block(Block::new().borders(Borders::ALL)),
         main_layout[0],
-        &mut app.local_list_state,
+        &mut app.browser_list_state,
     );
 
     // Only show scrollbar if there are enough items
-    if app.local_files.len() > main_layout[0].height as usize {
-        app.local_scrollbar = app.local_scrollbar
-            .content_length(app.local_files.len())
-            .position(app.local_idx);
+    if app.browser_files.len() > main_layout[0].height as usize {
+        app.browser_scrollbar = app.browser_scrollbar
+            .content_length(app.browser_files.len())
+            .position(app.browser_idx);
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
             .begin_symbol(Some("k")).end_symbol(Some("j")); // idk abut these lol
 
@@ -97,7 +97,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         frame.render_stateful_widget(
             scrollbar,
             main_layout[0].inner(Margin { vertical: 1, horizontal: 0 }),
-            &mut app.local_scrollbar,
+            &mut app.browser_scrollbar,
         );
     }
 
