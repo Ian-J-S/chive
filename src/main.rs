@@ -76,6 +76,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                     KeyCode::Char('.') => {
                         app.toggle_hidden_files()?;
                     }
+                    KeyCode::Char('a') => {
+                        app.toggle_selected_path();
+                    }
                     _ => {}
                 }
                 _ => {}

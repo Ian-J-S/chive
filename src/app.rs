@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::{env, io};
 use std::path::PathBuf;
 use std::fs::read_dir;
@@ -17,6 +18,7 @@ pub struct App {
     pub browser_scrollbar: ScrollbarState,
     pub current_pane: CurrentPane,
     pub show_hidden: bool,
+    pub selected_files: HashSet<PathBuf>,
 }
 
 impl App {
@@ -29,9 +31,11 @@ impl App {
             browser_scrollbar: ScrollbarState::new(0).position(0),
             current_pane: CurrentPane::Browser,
             show_hidden: false,
+            selected_files: HashSet::new(),
         }
     }
 
+    /// Add files to list displayed in left pane.
     pub fn get_browser_files(&self) -> io::Result<Vec<PathBuf>> {
         let mut entries = read_dir(self.browser_path.clone())?
             .map(|res| res.map(|e| e.path()))
@@ -49,6 +53,12 @@ impl App {
         Ok(entries)
     }
 
+    /// Get current file under the cursor.
+    fn get_selected(&self) -> PathBuf {
+        self.browser_files[self.browser_idx].clone()
+    }
+
+    /// Increase or decrease the selected index in the file browser.
     pub fn update_browser_idx(&mut self, step: isize) {
         let new_idx = if step >= 0 {
             self.browser_idx.wrapping_add(step as usize) % self.browser_files.len()
@@ -83,6 +93,7 @@ impl App {
         Ok(())
     }
 
+    /// Show or hide hidden files.
     pub fn toggle_hidden_files(&mut self) -> io::Result<()> {
         self.show_hidden = !self.show_hidden;
         self.browser_files = self.get_browser_files()?;
@@ -92,5 +103,20 @@ impl App {
     pub fn refresh(&mut self) -> io::Result<()> {
         self.browser_files = self.get_browser_files()?;
         Ok(())
+    }
+
+    pub fn toggle_selected_path(&mut self) {
+        let selected = self.get_selected();
+
+        // Don't allow selection of parent directory.
+        if let Some(name) = selected.to_str() && name == ".." {
+            return;
+        }
+
+        if self.selected_files.contains(&selected) {
+            self.selected_files.remove(&selected);
+        } else {
+            self.selected_files.insert(selected);
+        }
     }
 }

@@ -32,7 +32,20 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     // Render browser files
     let mut list_items = Vec::<ListItem>::new();
     for (i, path) in app.browser_files.iter().enumerate() {
-        let style = if i == app.browser_idx {
+        // Style based on cursor, selection, or directory.
+        // TODO - There has got to be a more elegant way to do this lol.
+        let style = if app.selected_files.contains(path) {
+            if i == app.browser_idx {
+                Style::default().fg(tailwind::ORANGE.c400)
+                    .bg(tailwind::SLATE.c900)
+                    .add_modifier(Modifier::BOLD)
+                    .add_modifier(Modifier::ITALIC)
+            }
+            else {
+                Style::default().fg(tailwind::ORANGE.c400)
+                .add_modifier(Modifier::ITALIC)
+            }
+        } else if i == app.browser_idx {
             Style::default().fg(tailwind::GREEN.c400)
             .bg(tailwind::SLATE.c900)
             .add_modifier(Modifier::BOLD)
@@ -41,6 +54,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         } else {
             Style::default().fg(Color::White)
         };
+
         // Render parent as .. and skip getting file name
         if path.to_str().expect("Unable to convert path to string") == ".." {
             list_items.push(ListItem::new(Line::from(Span::styled(
