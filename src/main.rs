@@ -1,4 +1,5 @@
-use std::{error::Error, io};
+use anyhow::Result;
+use std::io;
 
 use ratatui::{
     backend::{Backend, CrosstermBackend},
@@ -17,7 +18,7 @@ use crate::{
     ui::ui,
 };
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     // setup terminal
     enable_raw_mode()?;
     let mut stderr = io::stderr(); // This is a special case. Normally using stdout is fine
@@ -44,7 +45,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<bool> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool> {
     app.browser_files = app.get_browser_files().unwrap(); // TODO - should replace with some app.init function
     loop {
         terminal.draw(|f| ui(f, app))?;
@@ -54,8 +55,6 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                 // Skip events that are not KeyEventKind::Press
                 continue;
             }
-            // TODO - remove this once you get the other pane working
-            #[allow(clippy::single_match)]
             match app.current_pane {
                 CurrentPane::Browser => match key.code {
                     KeyCode::Char('q') | KeyCode::Esc => {
@@ -77,11 +76,42 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<
                         app.toggle_hidden_files()?;
                     }
                     KeyCode::Char('a') => {
-                        app.toggle_selected_path();
+                        app.add_file_to_archive()?;
+                    }
+                    KeyCode::Char('l') => {
+                        // Attempt to load an existing archive.
+                        // Its contents will be showed in the right pane.
+                        // Potentially show a status window with a message if
+                        // the selected file is not an archive?
+                        return Ok(true);
+                    }
+                    KeyCode::Char('e') => {
+                        // Attemp to extract an existing archive
+                    }
+                    KeyCode::Tab => {
+                        app.toggle_pane();
                     }
                     _ => {}
                 }
-                _ => {}
+                CurrentPane::Archive => match key.code {
+                    KeyCode::Char('q') | KeyCode::Esc => {
+                        return Ok(false);
+                    }
+                    KeyCode::Tab => {
+                        app.toggle_pane();
+                    }
+                    KeyCode::Char('a') => {
+                        // Add more files to an existing archive
+                        return Ok(true)
+                    }
+                    KeyCode::Char('c') => {
+                        app.create_archive()?;
+                    }
+                    KeyCode::Char('s') => {
+                        app.save_archive()?;
+                    }
+                    _ => {}
+                }
             }
         }
     }

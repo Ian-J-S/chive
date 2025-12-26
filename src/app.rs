@@ -1,9 +1,15 @@
+use anyhow::{anyhow, Result};
+use flate2::Compression;
+use flate2::write::GzEncoder;
 use std::collections::HashSet;
-use std::{env, io};
+use std::env;
+use std::io::{self, Seek, SeekFrom};
+use std::fs::{File, read_dir};
 use std::path::PathBuf;
-use std::fs::read_dir;
 use path_clean::PathClean;
 use ratatui::widgets::{ScrollbarState, ListState};
+use tar::Builder;
+use tempfile::tempfile;
 
 pub enum CurrentPane {
     Browser,
@@ -18,7 +24,9 @@ pub struct App {
     pub browser_scrollbar: ScrollbarState,
     pub current_pane: CurrentPane,
     pub show_hidden: bool,
-    pub selected_files: HashSet<PathBuf>,
+    pub archive_names: HashSet<PathBuf>,  // Stores unique file names, not full paths
+    pub current_archive: Option<Builder<GzEncoder<File>>>,
+    pub archive_idx: usize,
 }
 
 impl App {
@@ -31,7 +39,9 @@ impl App {
             browser_scrollbar: ScrollbarState::new(0).position(0),
             current_pane: CurrentPane::Browser,
             show_hidden: false,
-            selected_files: HashSet::new(),
+            archive_names: HashSet::new(),
+            current_archive: None,
+            archive_idx: 0, 
         }
     }
 
@@ -70,6 +80,8 @@ impl App {
         self.browser_idx = new_idx;
     }
 
+    /// Try to change directory to the one under the cursor.
+    /// If the selected file isn't a directory, do nothing.
     pub fn change_browser_dir(&mut self) -> io::Result<()> {
         let selected_path = self.browser_files[self.browser_idx].clone();
         let new_path = if selected_path.to_str()
@@ -100,23 +112,63 @@ impl App {
         Ok(())
     }
 
+    /// Refresh files in file browser.
     pub fn refresh(&mut self) -> io::Result<()> {
         self.browser_files = self.get_browser_files()?;
         Ok(())
     }
 
-    pub fn toggle_selected_path(&mut self) {
-        let selected = self.get_selected();
+    /// Toggle the current pane between browser and archive
+    pub fn toggle_pane(&mut self) {
+        self.current_pane = match self.current_pane {
+            CurrentPane::Browser => CurrentPane::Archive,
+            CurrentPane::Archive => CurrentPane::Browser,
+        }
+    }
 
-        // Don't allow selection of parent directory.
-        if let Some(name) = selected.to_str() && name == ".." {
-            return;
+    /// Create a compressed archive from the selected paths
+    pub fn create_archive(&mut self) -> Result<()> {
+        let file = tempfile()?; 
+        let gz = GzEncoder::new(file, Compression::default());
+        let ar = Builder::new(gz);
+        self.current_archive = Some(ar);
+
+        Ok(())
+    }
+
+    pub fn add_file_to_archive(&mut self) -> Result<()> {
+        let full_path = self.get_selected();
+        let path = full_path.strip_prefix(self.browser_path.clone())?;
+
+        if self.current_archive.is_none() {
+            self.create_archive()?;
         }
 
-        if self.selected_files.contains(&selected) {
-            self.selected_files.remove(&selected);
-        } else {
-            self.selected_files.insert(selected);
+        if self.archive_names.contains(path) {
+            return Err(anyhow!("Cannot add duplicate file name {}", path.to_str().expect("Path does not have file name")));
         }
+
+        self.archive_names.insert(path.to_path_buf());
+        self.current_archive.as_mut().expect("Current archive does not exist").append_path(path)?;
+
+        Ok(())
+    }
+
+    pub fn save_archive(&mut self) -> Result<()> {
+        let builder = self
+            .current_archive
+            .take()
+            .ok_or_else(|| anyhow!("Current archive does not exist"))?;
+
+        let gz = builder.into_inner()?;
+
+        let mut temp_file = gz.finish()?;
+
+        temp_file.seek(SeekFrom::Start(0))?;
+
+        let mut out = File::create("test.tar.gz")?;
+        io::copy(&mut temp_file, &mut out)?;
+
+        Ok(())
     }
 }

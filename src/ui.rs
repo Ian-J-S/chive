@@ -1,9 +1,9 @@
 use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect}, 
+    layout::{Constraint, Layout}, 
     prelude::Margin,
     style::{palette::tailwind, Color, Modifier, Style},
-    symbols::scrollbar, text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation, Wrap},
+    text::{Line, Span},
+    widgets::{Block, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation},
     Frame
 };
 
@@ -30,11 +30,11 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         title_layout[0]);
 
     // Render browser files
-    let mut list_items = Vec::<ListItem>::new();
+    let mut browser_items = Vec::<ListItem>::new();
     for (i, path) in app.browser_files.iter().enumerate() {
         // Style based on cursor, selection, or directory.
         // TODO - There has got to be a more elegant way to do this lol.
-        let style = if app.selected_files.contains(path) {
+        let style = if app.archive_names.contains(path) {
             if i == app.browser_idx {
                 Style::default().fg(tailwind::ORANGE.c400)
                     .bg(tailwind::SLATE.c900)
@@ -57,13 +57,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
         // Render parent as .. and skip getting file name
         if path.to_str().expect("Unable to convert path to string") == ".." {
-            list_items.push(ListItem::new(Line::from(Span::styled(
+            browser_items.push(ListItem::new(Line::from(Span::styled(
                 format!("{}", path.to_string_lossy()),
                 style,
             ))));
         } else {
             let file_name = path.file_name().expect("Path has no file name").to_string_lossy();
-            list_items.push(ListItem::new(Line::from(Span::styled(
+            browser_items.push(ListItem::new(Line::from(Span::styled(
                 format!("{}", file_name),
                 style,
             ))));
@@ -72,29 +72,44 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     
     #[cfg(debug_assertions)]
     {
+        browser_items.push(ListItem::new(Line::from(Span::styled(
+            "Debug Info:",
+            Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)
+        ))));
         // Show index and total number of files
-        list_items.push(ListItem::new(Line::from(Span::styled(
-            format!("{} / {}", app.browser_idx, app.browser_files.len() - 1),
+        browser_items.push(ListItem::new(Line::from(Span::styled(
+            format!("idx: {} / {}", app.browser_idx, app.browser_files.len() - 1),
             Style::default().fg(Color::White)
         ))));
 
         // Show current directory
-        list_items.push(ListItem::new(Line::from(Span::styled(
-            format!("{}", app.browser_path.to_string_lossy()),
+        browser_items.push(ListItem::new(Line::from(Span::styled(
+            format!("cwd: {}", app.browser_path.to_string_lossy()),
             Style::default().fg(Color::White)
         ))));
 
         // Show whether dotfiles are hidden
-        list_items.push(ListItem::new(Line::from(Span::styled(
+        browser_items.push(ListItem::new(Line::from(Span::styled(
             format!("Showing hidden? {}", app.show_hidden),
             Style::default().fg(Color::White)
         ))));
     }
 
-    let list = List::new(list_items);
+    let browser_list = List::new(browser_items);
     app.browser_list_state.select(Some(app.browser_idx));
+
+    // Change style based on which pane is selected
+    let left_block = Block::default()
+        .title("Browser")
+        .border_style(Style::default())
+        .borders(Borders::all());
+    let left_block = match app.current_pane {
+        CurrentPane::Browser => left_block.border_style(Style::default().add_modifier(Modifier::BOLD).fg(tailwind::SLATE.c100)),
+        CurrentPane::Archive => left_block.border_style(Style::default().add_modifier(Modifier::DIM)),
+    };
+
     frame.render_stateful_widget(
-        list.block(Block::new().borders(Borders::ALL)),
+        browser_list.block(left_block),
         main_layout[0],
         &mut app.browser_list_state,
     );
@@ -115,8 +130,28 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         );
     }
 
+    // Create list of selected items
+    let mut archive_items = Vec::<ListItem>::new();
+    for path in app.archive_names.iter() {
+        let style = Style::default().fg(Color::White);
+        let file_name = path.file_name().expect("Path has no file name");
+        archive_items.push(ListItem::new(Line::from(Span::styled(
+            format!("{}", file_name.to_string_lossy()),
+            style,
+        ))));
+    }
+    let archive_list = List::new(archive_items);
+
+    let right_block = Block::default()
+        .title("Archive")
+        .border_style(Style::default())
+        .borders(Borders::all());
+    let right_block = match app.current_pane {
+        CurrentPane::Browser => right_block. border_style(Style::default().add_modifier(Modifier::DIM)),
+        CurrentPane::Archive => right_block.border_style(Style::default().add_modifier(Modifier::BOLD).fg(tailwind::SLATE.c100)),
+    };
+
     frame.render_widget(
-        Paragraph::new("Right")
-            .block(Block::new().borders(Borders::ALL)),
+        archive_list.block(right_block),
         main_layout[1]);
 }
