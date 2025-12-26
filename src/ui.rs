@@ -7,6 +7,7 @@ use ratatui::{
     Frame
 };
 
+use std::path::{Path, PathBuf};
 use crate::app::{App, CurrentPane};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
@@ -33,10 +34,18 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     let mut browser_items = Vec::<ListItem>::new();
     for (i, path) in app.browser_files.iter().enumerate() {
         // Style based on cursor, selection, or directory.
-        // TODO - There has got to be a more elegant way to do this lol.
-        let style = if app.archive_names.contains(path) {
+        let mut style = Style::default().fg(Color::White);
+        
+        // Check if file is in archive by comparing relative path
+        let relative_path = if path.to_str().expect("Unable to convert path to string") == ".." {
+            PathBuf::from("..")
+        } else {
+            path.strip_prefix(app.browser_path.clone()).unwrap_or(path).to_path_buf()
+        };
+        
+        style = if app.archive_names.contains(&relative_path) {
             if i == app.browser_idx {
-                Style::default().fg(tailwind::ORANGE.c400)
+                style.fg(tailwind::ORANGE.c400)
                     .bg(tailwind::SLATE.c900)
                     .add_modifier(Modifier::BOLD)
                     .add_modifier(Modifier::ITALIC)

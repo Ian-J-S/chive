@@ -6,7 +6,7 @@ This is a side project for me to learn about creating a TUI application.
 - [X] Color dirs blue
 - [X] Scrollbar for dirs with many files
 - [X] `'.'` keybind for hiding dotfiles
-- [ ] Color selected files
+- [X] Color selected files
 - [ ] Load existing archive for modification
 - [ ] Extract selected archive
 ### Archives
