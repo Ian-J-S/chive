@@ -30,10 +30,10 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .block(Block::new().borders(Borders::ALL)),
         title_layout[0]);
 
-    // Render browser files
+    // Render browser files.
+    // Style based on cursor position, selection, or directory.
     let mut browser_items = Vec::<ListItem>::new();
     for (i, path) in app.browser_files.iter().enumerate() {
-        // Style based on cursor, selection, or directory.
         let mut style = Style::default().fg(Color::White);
         
         // Check if file is in archive by comparing relative path
@@ -54,17 +54,19 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 Style::default().fg(tailwind::ORANGE.c400)
                 .add_modifier(Modifier::ITALIC)
             }
+        // Style by cursor position
         } else if i == app.browser_idx {
             Style::default().fg(tailwind::GREEN.c400)
             .bg(tailwind::SLATE.c900)
             .add_modifier(Modifier::BOLD)
+        // Color blue if file is a directory 
         } else if path.is_dir() {
             Style::default().fg(tailwind::BLUE.c400)
         } else {
             Style::default().fg(Color::White)
         };
 
-        // Render parent as .. and skip getting file name
+        // Render parent as ".." and skip getting file name
         if path.to_str().expect("Unable to convert path to string") == ".." {
             browser_items.push(ListItem::new(Line::from(Span::styled(
                 format!("{}", path.to_string_lossy()),
