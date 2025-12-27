@@ -7,7 +7,7 @@ use ratatui::{
     Frame
 };
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use crate::app::{App, CurrentPane};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
@@ -113,8 +113,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .border_style(Style::default())
         .borders(Borders::all());
     let left_block = match app.current_pane {
-        CurrentPane::Browser => left_block.border_style(Style::default().add_modifier(Modifier::BOLD).fg(tailwind::SLATE.c100)),
-        CurrentPane::Archive => left_block.border_style(Style::default().add_modifier(Modifier::DIM)),
+        CurrentPane::Browser => left_block.border_style(Style::default().add_modifier(Modifier::BOLD).fg(tailwind::BLUE.c400)),
+        CurrentPane::Archive => left_block.border_style(Style::default()),
     };
 
     frame.render_stateful_widget(
@@ -156,8 +156,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         .border_style(Style::default())
         .borders(Borders::all());
     let right_block = match app.current_pane {
-        CurrentPane::Browser => right_block. border_style(Style::default().add_modifier(Modifier::DIM)),
-        CurrentPane::Archive => right_block.border_style(Style::default().add_modifier(Modifier::BOLD).fg(tailwind::SLATE.c100)),
+        CurrentPane::Browser => right_block. border_style(Style::default()),
+        CurrentPane::Archive => right_block.border_style(Style::default().add_modifier(Modifier::BOLD).fg(tailwind::ORANGE.c400)),
     };
 
     frame.render_widget(
