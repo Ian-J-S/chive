@@ -171,4 +171,19 @@ impl App {
 
         Ok(())
     }
+
+    pub fn update_archive_idx(&mut self, step: isize) {
+        let new_idx = if !self.archive_names.is_empty() {
+            if step >= 0 {
+                self.archive_idx.wrapping_add(step as usize) % self.archive_names.len()
+            } else {
+                ((self.archive_idx as isize + step)
+                    .rem_euclid(self.archive_names.len() as isize)) as usize
+            }
+        } else {
+                0
+        };
+
+        self.archive_idx = new_idx;
+    }
 }

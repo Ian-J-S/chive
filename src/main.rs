@@ -88,6 +88,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     KeyCode::Char('e') => {
                         // Attemp to extract an existing archive
                     }
+                    KeyCode::Char('d') | KeyCode::Backspace => {
+                        // Remove file from archive
+                    }
                     KeyCode::Tab => {
                         app.toggle_pane();
                     }
@@ -100,15 +103,17 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     KeyCode::Tab => {
                         app.toggle_pane();
                     }
-                    KeyCode::Char('a') => {
-                        // Add more files to an existing archive
-                        return Ok(true)
-                    }
                     KeyCode::Char('c') => {
                         app.create_archive()?;
                     }
                     KeyCode::Char('s') => {
                         app.save_archive()?;
+                    }
+                    KeyCode::Char('j') | KeyCode::Down => {
+                        app.update_archive_idx(1);
+                    }
+                    KeyCode::Char('k') | KeyCode::Up => {
+                        app.update_archive_idx(-1);
                     }
                     _ => {}
                 }

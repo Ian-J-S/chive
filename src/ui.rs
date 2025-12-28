@@ -143,14 +143,50 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
     // Create list of selected items
     let mut archive_items = Vec::<ListItem>::new();
-    for path in app.archive_names.iter() {
-        let style = Style::default().fg(Color::White);
+    for (i, path) in app.archive_names.iter().enumerate() {
+        let style = if i == app.archive_idx {
+            Style::default().fg(tailwind::ORANGE.c300)
+                .bg(tailwind::SLATE.c900)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
         let file_name = path.file_name().expect("Path has no file name");
         archive_items.push(ListItem::new(Line::from(Span::styled(
             format!("{}", file_name.to_string_lossy()),
             style,
         ))));
     }
+
+    #[cfg(debug_assertions)]
+    {
+        archive_items.push(ListItem::new(Line::from(Span::styled(
+            "Debug Info:",
+            Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan)
+        ))));
+        // Show index and total number of files
+        archive_items.push(ListItem::new(Line::from(Span::styled(
+            if app.archive_names.is_empty() {
+                "0 / 0".to_string()
+            } else {
+                format!("idx: {} / {}", app.archive_idx, app.archive_names.len() - 1)
+            },
+            Style::default().fg(Color::White)
+        ))));
+
+        // Show current directory
+        archive_items.push(ListItem::new(Line::from(Span::styled(
+            format!("cwd: {}", app.browser_path.to_string_lossy()),
+            Style::default().fg(Color::White)
+        ))));
+
+        // Show whether dotfiles are hidden
+        archive_items.push(ListItem::new(Line::from(Span::styled(
+            format!("Showing hidden? {}", app.show_hidden),
+            Style::default().fg(Color::White)
+        ))));
+    }
+
     let archive_list = List::new(archive_items);
 
     let right_block = Block::default()
