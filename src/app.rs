@@ -121,8 +121,9 @@ impl App {
     /// Toggle the current pane between browser and archive
     pub fn toggle_pane(&mut self) {
         self.current_pane = match self.current_pane {
-            CurrentPane::Browser => CurrentPane::Archive,
+            CurrentPane::Browser if !self.archive_names.is_empty() => CurrentPane::Archive,
             CurrentPane::Archive => CurrentPane::Browser,
+            _ => CurrentPane::Browser,
         }
     }
 
