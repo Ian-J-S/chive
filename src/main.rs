@@ -13,6 +13,7 @@ use ratatui::{
 
 mod app;
 mod ui;
+mod util;
 use crate::{
     app::{App, CurrentPane},
     ui::ui,
@@ -87,6 +88,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     }
                     KeyCode::Char('e') => {
                         // Attemp to extract an existing archive
+                        app.extract_archive()?;
+                        app.refresh()?;
                     }
                     KeyCode::Char('d') | KeyCode::Backspace => {
                         // Remove file from archive
