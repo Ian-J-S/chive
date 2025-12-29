@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use flate2::Compression;
+use flate2::read::MultiGzDecoder;
 use flate2::write::GzEncoder;
 use std::collections::HashSet;
 use std::env;
@@ -8,8 +9,10 @@ use std::fs::{File, read_dir};
 use std::path::PathBuf;
 use path_clean::PathClean;
 use ratatui::widgets::{ScrollbarState, ListState};
-use tar::Builder;
+use tar::{Archive, Builder};
 use tempfile::tempfile;
+
+use crate::util::strip_all_extensions;
 
 pub enum CurrentPane {
     Browser,
@@ -182,9 +185,27 @@ impl App {
                     .rem_euclid(self.archive_names.len() as isize)) as usize
             }
         } else {
-                0
+            0
         };
 
         self.archive_idx = new_idx;
+    }
+
+    pub fn extract_archive(&self) -> Result<()> {
+        let path = match self.current_pane {
+            CurrentPane::Browser => self.get_selected(),
+            CurrentPane::Archive => return Err(anyhow!("Not implemented")),
+        };
+
+        // Build path to extract archive to
+        let file = File::open(&path)?;
+        let file_stem = strip_all_extensions(&path);
+        let unpack_path = self.browser_path.join(file_stem);
+
+        let decoder = MultiGzDecoder::new(&file);
+        let mut archive = Archive::new(decoder);
+        archive.unpack(unpack_path)?;
+
+        Ok(())
     }
 }
