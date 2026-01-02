@@ -66,7 +66,7 @@ impl App {
         Ok(entries)
     }
 
-    /// Get current file under the cursor.
+    /// Get current file under the cursor in the browser pane.
     fn get_selected(&self) -> PathBuf {
         self.browser_files[self.browser_idx].clone()
     }
@@ -149,11 +149,15 @@ impl App {
         }
 
         if self.archive_names.contains(path) {
-            return Err(anyhow!("Cannot add duplicate file name {}", path.to_str().expect("Path does not have file name")));
+            self.remove_from_archive()?;
+            return Ok(());
         }
 
         self.archive_names.insert(path.to_path_buf());
-        self.current_archive.as_mut().expect("Current archive does not exist").append_path(path)?;
+        self.current_archive
+            .as_mut()
+            .expect("Current archive does not exist")
+            .append_path_with_name(&full_path, path)?;
 
         Ok(())
     }
@@ -205,6 +209,51 @@ impl App {
         let decoder = MultiGzDecoder::new(&file);
         let mut archive = Archive::new(decoder);
         archive.unpack(unpack_path)?;
+
+        Ok(())
+    }
+
+    /// Removes selected file from the archive
+    pub fn remove_from_archive(&mut self) -> Result<()> {
+        // Get selected file
+        let file_to_remove = self.get_selected();
+        let mut file_to_remove = file_to_remove
+            .strip_prefix(self.browser_path.clone())?
+            .to_path_buf();
+        file_to_remove = file_to_remove.clean();
+
+        // Get current archive file
+        let current_builder = self.current_archive.take()
+            .ok_or_else(|| anyhow!("Current archive does not exist, cannot remove file"))?;
+
+        // Get inner file from encoder
+        let gz = current_builder.into_inner()?;
+        let mut temp_file = gz.finish()?;
+        // Rewind file position after .finish()
+        temp_file.seek(SeekFrom::Start(0))?;
+
+        let decoder = MultiGzDecoder::new(temp_file);
+        let mut archive = Archive::new(decoder);
+
+        let new_file = tempfile()?;
+        let gz = GzEncoder::new(new_file, Compression::default());
+        let mut new_builder = Builder::new(gz);
+
+        for entry_res in archive.entries()? {
+            let entry = entry_res?;
+            let entry_path = entry.path()?;
+
+            // Skip entries that match the file to remove
+            if entry_path.as_ref().starts_with(&file_to_remove) {
+                continue;
+            }
+
+            let header = entry.header().clone();
+            new_builder.append(&header, entry)?;
+        }
+
+        self.archive_names.retain(|n| n != &file_to_remove);
+        self.current_archive = Some(new_builder);
 
         Ok(())
     }

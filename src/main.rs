@@ -80,11 +80,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                         app.add_file_to_archive()?;
                     }
                     KeyCode::Char('l') => {
-                        // Attempt to load an existing archive.
-                        // Its contents will be showed in the right pane.
-                        // Potentially show a status window with a message if
-                        // the selected file is not an archive?
-                        return Ok(true);
+
                     }
                     KeyCode::Char('e') => {
                         // Attemp to extract an existing archive
@@ -111,6 +107,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     }
                     KeyCode::Char('s') => {
                         app.save_archive()?;
+                        app.refresh()?;
                     }
                     KeyCode::Char('j') | KeyCode::Down => {
                         app.update_archive_idx(1);
