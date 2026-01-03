@@ -80,7 +80,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                         app.add_file_to_archive()?;
                     }
                     KeyCode::Char('l') => {
-
+                        app.load_archive()?;
                     }
                     KeyCode::Char('e') => {
                         // Attemp to extract an existing archive

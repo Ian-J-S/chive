@@ -216,11 +216,10 @@ impl App {
     /// Removes selected file from the archive
     pub fn remove_from_archive(&mut self) -> Result<()> {
         // Get selected file
-        let file_to_remove = self.get_selected();
-        let mut file_to_remove = file_to_remove
+        let file_to_remove = self.get_selected()
             .strip_prefix(self.browser_path.clone())?
-            .to_path_buf();
-        file_to_remove = file_to_remove.clean();
+            .to_path_buf()
+            .clean();
 
         // Get current archive file
         let current_builder = self.current_archive.take()
@@ -253,6 +252,38 @@ impl App {
         }
 
         self.archive_names.retain(|n| n != &file_to_remove);
+        self.current_archive = Some(new_builder);
+
+        Ok(())
+    }
+
+    /// Load an existing archive for editing
+    pub fn load_archive(&mut self) -> Result<()> {
+        // Get selected file
+        let archive_name = self.get_selected()
+            .strip_prefix(self.browser_path.clone())?
+            .to_path_buf()
+            .clean();
+
+        // Get decoder and archive object
+        let f = File::open(&archive_name)?;
+        let decoder = flate2::read::GzDecoder::new(f);
+        let mut archive = Archive::new(decoder);
+
+        // Create a tempfile and encoder for the new archive
+        let new_file = tempfile()?;
+        let gz = GzEncoder::new(new_file, Compression::default());
+        let mut new_builder = Builder::new(gz);
+
+        // Copy entries from archive into new builder
+        for entry_res in archive.entries()? {
+            let entry = entry_res?;
+            let entry_path = entry.path()?;
+            self.archive_names.insert(entry_path.into());
+            let header = entry.header().clone();
+            new_builder.append(&header, entry)?;
+        }
+
         self.current_archive = Some(new_builder);
 
         Ok(())
