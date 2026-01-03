@@ -276,6 +276,7 @@ impl App {
         let mut new_builder = Builder::new(gz);
 
         // Copy entries from archive into new builder
+        self.archive_names = HashSet::new();
         for entry_res in archive.entries()? {
             let entry = entry_res?;
             let entry_path = entry.path()?;
