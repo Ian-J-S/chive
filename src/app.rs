@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::env;
 use std::io::{self, Seek, SeekFrom};
 use std::fs::{File, read_dir};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use path_clean::PathClean;
 use ratatui::widgets::{ScrollbarState, ListState};
 use tar::{Archive, Builder};
@@ -66,7 +66,7 @@ impl App {
         Ok(entries)
     }
 
-    /// Get current file under the cursor.
+    /// Get current file under the cursor in the browser pane.
     fn get_selected(&self) -> PathBuf {
         self.browser_files[self.browser_idx].clone()
     }
@@ -140,6 +140,15 @@ impl App {
         Ok(())
     }
 
+    fn append_to_archive(&mut self, full_path: &Path, path: &Path) -> Result<()> {
+        self.archive_names.insert(path.to_path_buf());
+        self.current_archive
+            .as_mut()
+            .expect("Current archive does not exist")
+            .append_path_with_name(full_path, path)?;
+        Ok(())
+    }
+
     pub fn add_file_to_archive(&mut self) -> Result<()> {
         let full_path = self.get_selected();
         let path = full_path.strip_prefix(self.browser_path.clone())?;
@@ -149,11 +158,25 @@ impl App {
         }
 
         if self.archive_names.contains(path) {
-            return Err(anyhow!("Cannot add duplicate file name {}", path.to_str().expect("Path does not have file name")));
+            self.remove_from_archive()?;
+            return Ok(());
         }
 
-        self.archive_names.insert(path.to_path_buf());
-        self.current_archive.as_mut().expect("Current archive does not exist").append_path(path)?;
+        if path.is_dir() {
+            let dir = path.read_dir()?;
+            self.append_to_archive(&full_path, path)?;
+            for f in dir {
+                let f = f?;
+                let p = f.path();
+                self.archive_names.insert(p.to_path_buf());
+                self.current_archive
+                    .as_mut()
+                    .expect("Current archive does not exist")
+                    .append_path(p)?;
+            }
+        } else {
+            self.append_to_archive(&full_path, path)?;
+        }
 
         Ok(())
     }
@@ -205,6 +228,83 @@ impl App {
         let decoder = MultiGzDecoder::new(&file);
         let mut archive = Archive::new(decoder);
         archive.unpack(unpack_path)?;
+
+        Ok(())
+    }
+
+    /// Removes selected file from the archive
+    pub fn remove_from_archive(&mut self) -> Result<()> {
+        // Get selected file
+        let file_to_remove = self.get_selected()
+            .strip_prefix(self.browser_path.clone())?
+            .to_path_buf()
+            .clean();
+
+        // Get current archive file
+        let current_builder = self.current_archive.take()
+            .ok_or_else(|| anyhow!("Current archive does not exist, cannot remove file"))?;
+
+        // Get inner file from encoder
+        let gz = current_builder.into_inner()?;
+        let mut temp_file = gz.finish()?;
+        // Rewind file position after .finish()
+        temp_file.seek(SeekFrom::Start(0))?;
+
+        let decoder = MultiGzDecoder::new(temp_file);
+        let mut archive = Archive::new(decoder);
+
+        let new_file = tempfile()?;
+        let gz = GzEncoder::new(new_file, Compression::default());
+        let mut new_builder = Builder::new(gz);
+
+        for entry_res in archive.entries()? {
+            let entry = entry_res?;
+            let entry_path = entry.path()?;
+
+            // Skip entries that match the file to remove
+            if entry_path.as_ref().starts_with(&file_to_remove) {
+                continue;
+            }
+
+            let header = entry.header().clone();
+            new_builder.append(&header, entry)?;
+        }
+
+        self.archive_names.retain(|n| n != &file_to_remove);
+        self.current_archive = Some(new_builder);
+
+        Ok(())
+    }
+
+    /// Load an existing archive for editing
+    pub fn load_archive(&mut self) -> Result<()> {
+        // Get selected file
+        let archive_name = self.get_selected()
+            .strip_prefix(self.browser_path.clone())?
+            .to_path_buf()
+            .clean();
+
+        // Get decoder and archive object
+        let f = File::open(&archive_name)?;
+        let decoder = flate2::read::GzDecoder::new(f);
+        let mut archive = Archive::new(decoder);
+
+        // Create a tempfile and encoder for the new archive
+        let new_file = tempfile()?;
+        let gz = GzEncoder::new(new_file, Compression::default());
+        let mut new_builder = Builder::new(gz);
+
+        // Copy entries from archive into new builder
+        self.archive_names = HashSet::new();
+        for entry_res in archive.entries()? {
+            let entry = entry_res?;
+            let entry_path = entry.path()?;
+            self.archive_names.insert(entry_path.into());
+            let header = entry.header().clone();
+            new_builder.append(&header, entry)?;
+        }
+
+        self.current_archive = Some(new_builder);
 
         Ok(())
     }

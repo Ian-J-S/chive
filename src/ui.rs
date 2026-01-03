@@ -189,14 +189,20 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
     let archive_list = List::new(archive_items);
 
+    let right_block_style = match app.current_pane {
+        CurrentPane::Browser => {
+            if app.archive_names.is_empty() {
+                Style::default().add_modifier(Modifier::DIM)
+            } else {
+                Style::default()
+            }
+        }
+        CurrentPane::Archive => Style::default().add_modifier(Modifier::BOLD).fg(tailwind::ORANGE.c400),
+    };
     let right_block = Block::default()
         .title("Archive")
-        .border_style(Style::default())
+        .border_style(right_block_style)
         .borders(Borders::all());
-    let right_block = match app.current_pane {
-        CurrentPane::Browser => right_block. border_style(Style::default()),
-        CurrentPane::Archive => right_block.border_style(Style::default().add_modifier(Modifier::BOLD).fg(tailwind::ORANGE.c400)),
-    };
 
     frame.render_widget(
         archive_list.block(right_block),
