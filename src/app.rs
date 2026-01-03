@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::env;
 use std::io::{self, Seek, SeekFrom};
 use std::fs::{File, read_dir};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use path_clean::PathClean;
 use ratatui::widgets::{ScrollbarState, ListState};
 use tar::{Archive, Builder};
@@ -140,6 +140,15 @@ impl App {
         Ok(())
     }
 
+    fn append_to_archive(&mut self, full_path: &Path, path: &Path) -> Result<()> {
+        self.archive_names.insert(path.to_path_buf());
+        self.current_archive
+            .as_mut()
+            .expect("Current archive does not exist")
+            .append_path_with_name(full_path, path)?;
+        Ok(())
+    }
+
     pub fn add_file_to_archive(&mut self) -> Result<()> {
         let full_path = self.get_selected();
         let path = full_path.strip_prefix(self.browser_path.clone())?;
@@ -153,11 +162,21 @@ impl App {
             return Ok(());
         }
 
-        self.archive_names.insert(path.to_path_buf());
-        self.current_archive
-            .as_mut()
-            .expect("Current archive does not exist")
-            .append_path_with_name(&full_path, path)?;
+        if path.is_dir() {
+            let dir = path.read_dir()?;
+            self.append_to_archive(&full_path, path)?;
+            for f in dir {
+                let f = f?;
+                let p = f.path();
+                self.archive_names.insert(p.to_path_buf());
+                self.current_archive
+                    .as_mut()
+                    .expect("Current archive does not exist")
+                    .append_path(p)?;
+            }
+        } else {
+            self.append_to_archive(&full_path, path)?;
+        }
 
         Ok(())
     }
