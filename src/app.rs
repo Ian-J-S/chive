@@ -71,6 +71,14 @@ impl App {
         self.browser_files[self.browser_idx].clone()
     }
 
+    /// Get current file under cursor in the archive pane.
+    fn get_selected_archive(&self) -> Option<PathBuf> {
+        self.archive_names
+            .iter()
+            .nth(self.archive_idx)
+            .cloned()
+    }
+
     /// Increase or decrease the selected index in the file browser.
     pub fn update_browser_idx(&mut self, step: isize) {
         let new_idx = if step >= 0 {
@@ -252,10 +260,17 @@ impl App {
     /// Removes selected file from the archive
     pub fn remove_from_archive(&mut self) -> Result<()> {
         // Get selected file
-        let file_to_remove = self.get_selected()
-            .strip_prefix(self.browser_path.clone())?
-            .to_path_buf()
-            .clean();
+        let file_to_remove = match self.current_pane {
+            CurrentPane::Browser => {
+                self.get_selected_browser()
+                    .strip_prefix(self.browser_path.clone())?
+                    .to_path_buf()
+                    .clean()
+            }
+            CurrentPane::Archive => {
+                self.get_selected_archive().ok_or_else(|| anyhow!("Unable to get current archive file"))?
+            }
+        };
 
         // Get current archive file
         let current_builder = self.current_archive.take()
