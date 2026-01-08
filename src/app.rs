@@ -14,6 +14,7 @@ use tempfile::tempfile;
 
 use crate::util::strip_all_extensions;
 
+#[derive(PartialEq)]
 pub enum CurrentPane {
     Browser,
     Archive,

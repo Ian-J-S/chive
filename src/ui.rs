@@ -55,10 +55,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 .add_modifier(Modifier::ITALIC)
             }
         // Style by cursor position
-        } else if i == app.browser_idx {
+        } else if i == app.browser_idx && app.current_pane == CurrentPane::Browser {
             Style::default().fg(tailwind::GREEN.c400)
             .bg(tailwind::SLATE.c900)
             .add_modifier(Modifier::BOLD)
+        } else if i == app.browser_idx && app.current_pane == CurrentPane::Archive {
+            Style::default().fg(tailwind::GREEN.c400)
+            .fg(tailwind::GREEN.c400)
         // Color blue if file is a directory 
         } else if path.is_dir() {
             Style::default().fg(tailwind::BLUE.c400)
@@ -144,10 +147,12 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     // Create list of selected items
     let mut archive_items = Vec::<ListItem>::new();
     for (i, path) in app.archive_names.iter().enumerate() {
-        let style = if i == app.archive_idx {
+        let style = if i == app.archive_idx && app.current_pane == CurrentPane::Archive {
             Style::default().fg(tailwind::ORANGE.c300)
                 .bg(tailwind::SLATE.c900)
                 .add_modifier(Modifier::BOLD)
+        } else if i == app.archive_idx && app.current_pane == CurrentPane::Browser {
+            Style::default().fg(tailwind::ORANGE.c300)
         } else {
             Style::default().fg(Color::White)
         };
