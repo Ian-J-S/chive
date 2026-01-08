@@ -115,6 +115,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     KeyCode::Char('k') | KeyCode::Up => {
                         app.update_archive_idx(-1);
                     }
+                    KeyCode::Char('e') => {
+                        app.extract_archive()?;
+                        app.refresh()?;
+                    }
                     _ => {}
                 }
             }

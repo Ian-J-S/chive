@@ -214,20 +214,37 @@ impl App {
         self.archive_idx = new_idx;
     }
 
-    pub fn extract_archive(&self) -> Result<()> {
-        let path = match self.current_pane {
-            CurrentPane::Browser => self.get_selected(),
-            CurrentPane::Archive => return Err(anyhow!("Not implemented")),
-        };
+    pub fn extract_archive(&mut self) -> Result<()> {
+        match self.current_pane {
+            CurrentPane::Browser => {
+                // Build path to extract archive to
+                let path = self.get_selected();
+                let file = File::open(&path)?;
+                let file_stem = strip_all_extensions(&path);
+                let unpack_path = self.browser_path.join(file_stem);
 
-        // Build path to extract archive to
-        let file = File::open(&path)?;
-        let file_stem = strip_all_extensions(&path);
-        let unpack_path = self.browser_path.join(file_stem);
+                let decoder = MultiGzDecoder::new(&file);
+                let mut archive = Archive::new(decoder);
+                archive.unpack(unpack_path)?;
+            }
+            // Current archive has been created / loaded,
+            // so we can extract it.
+            CurrentPane::Archive => {
+                let b = self.current_archive.take().unwrap();
+                self.archive_names = HashSet::new();
 
-        let decoder = MultiGzDecoder::new(&file);
-        let mut archive = Archive::new(decoder);
-        archive.unpack(unpack_path)?;
+                let gz = b.into_inner()?;
+                let mut temp = gz.finish()?;
+                temp.seek(SeekFrom::Start(0))?;
+
+                let decoder = MultiGzDecoder::new(temp);
+                let mut archive = Archive::new(decoder);
+
+                // TODO - get destination from a save input box
+                let unpack_dst = self.browser_path.join("unpack/");
+                archive.unpack(unpack_dst)?;
+            }
+        }
 
         Ok(())
     }
