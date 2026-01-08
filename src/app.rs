@@ -67,8 +67,16 @@ impl App {
     }
 
     /// Get current file under the cursor in the browser pane.
-    fn get_selected(&self) -> PathBuf {
+    fn get_selected_browser(&self) -> PathBuf {
         self.browser_files[self.browser_idx].clone()
+    }
+
+    /// Get current file under cursor in the archive pane.
+    fn get_selected_archive(&self) -> Option<PathBuf> {
+        self.archive_names
+            .iter()
+            .nth(self.archive_idx)
+            .cloned()
     }
 
     /// Increase or decrease the selected index in the file browser.
@@ -150,7 +158,7 @@ impl App {
     }
 
     pub fn add_file_to_archive(&mut self) -> Result<()> {
-        let full_path = self.get_selected();
+        let full_path = self.get_selected_browser();
         let path = full_path.strip_prefix(self.browser_path.clone())?;
 
         if self.current_archive.is_none() {
@@ -218,7 +226,7 @@ impl App {
         match self.current_pane {
             CurrentPane::Browser => {
                 // Build path to extract archive to
-                let path = self.get_selected();
+                let path = self.get_selected_browser();
                 let file = File::open(&path)?;
                 let file_stem = strip_all_extensions(&path);
                 let unpack_path = self.browser_path.join(file_stem);
@@ -252,10 +260,17 @@ impl App {
     /// Removes selected file from the archive
     pub fn remove_from_archive(&mut self) -> Result<()> {
         // Get selected file
-        let file_to_remove = self.get_selected()
-            .strip_prefix(self.browser_path.clone())?
-            .to_path_buf()
-            .clean();
+        let file_to_remove = match self.current_pane {
+            CurrentPane::Browser => {
+                self.get_selected_browser()
+                    .strip_prefix(self.browser_path.clone())?
+                    .to_path_buf()
+                    .clean()
+            }
+            CurrentPane::Archive => {
+                self.get_selected_archive().ok_or_else(|| anyhow!("Unable to get current archive file"))?
+            }
+        };
 
         // Get current archive file
         let current_builder = self.current_archive.take()
@@ -296,7 +311,7 @@ impl App {
     /// Load an existing archive for editing
     pub fn load_archive(&mut self) -> Result<()> {
         // Get selected file
-        let archive_name = self.get_selected()
+        let archive_name = self.get_selected_browser()
             .strip_prefix(self.browser_path.clone())?
             .to_path_buf()
             .clean();
