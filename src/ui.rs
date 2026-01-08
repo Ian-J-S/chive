@@ -13,8 +13,8 @@ use crate::app::{App, CurrentPane};
 pub fn ui(frame: &mut Frame, app: &mut App) {
     // Define the layout: Top pane takes 1 row, bottom pane takes the rest
     let title_layout = Layout::vertical([
-        Constraint::Percentage(10),
         Constraint::Percentage(90),
+        Constraint::Percentage(10),
     ])
     .split(frame.area());
 
@@ -22,13 +22,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         Constraint::Percentage(50),
         Constraint::Percentage(50),
     ])
-    .split(title_layout[1]);
+    .split(title_layout[0]);
 
-    // Render a title in the top pane
+    // Render a title in the footer
     frame.render_widget(
-        Paragraph::new("Header")
+        Paragraph::new("Footer")
         .block(Block::new().borders(Borders::ALL)),
-        title_layout[0]);
+        title_layout[1]);
 
     // Render browser files.
     // Style based on cursor position, selection, or directory.
