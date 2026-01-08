@@ -100,7 +100,8 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                         app.toggle_pane();
                     }
                     KeyCode::Char('c') => {
-                        app.create_archive()?;
+                        app.clear_archive();
+                        app.refresh()?;
                     }
                     KeyCode::Char('s') => {
                         app.save_archive()?;
