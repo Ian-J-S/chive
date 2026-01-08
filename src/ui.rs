@@ -13,8 +13,8 @@ use crate::app::{App, CurrentPane};
 pub fn ui(frame: &mut Frame, app: &mut App) {
     // Define the layout: Top pane takes 1 row, bottom pane takes the rest
     let title_layout = Layout::vertical([
-        Constraint::Percentage(10),
         Constraint::Percentage(90),
+        Constraint::Percentage(10),
     ])
     .split(frame.area());
 
@@ -22,13 +22,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
         Constraint::Percentage(50),
         Constraint::Percentage(50),
     ])
-    .split(title_layout[1]);
+    .split(title_layout[0]);
 
-    // Render a title in the top pane
+    // Render a title in the footer
     frame.render_widget(
-        Paragraph::new("Header")
+        Paragraph::new("Footer")
         .block(Block::new().borders(Borders::ALL)),
-        title_layout[0]);
+        title_layout[1]);
 
     // Render browser files.
     // Style based on cursor position, selection, or directory.
@@ -55,10 +55,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
                 .add_modifier(Modifier::ITALIC)
             }
         // Style by cursor position
-        } else if i == app.browser_idx {
+        } else if i == app.browser_idx && app.current_pane == CurrentPane::Browser {
             Style::default().fg(tailwind::GREEN.c400)
             .bg(tailwind::SLATE.c900)
             .add_modifier(Modifier::BOLD)
+        } else if i == app.browser_idx && app.current_pane == CurrentPane::Archive {
+            Style::default().fg(tailwind::GREEN.c400)
+            .fg(tailwind::GREEN.c400)
         // Color blue if file is a directory 
         } else if path.is_dir() {
             Style::default().fg(tailwind::BLUE.c400)
@@ -144,10 +147,12 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     // Create list of selected items
     let mut archive_items = Vec::<ListItem>::new();
     for (i, path) in app.archive_names.iter().enumerate() {
-        let style = if i == app.archive_idx {
+        let style = if i == app.archive_idx && app.current_pane == CurrentPane::Archive {
             Style::default().fg(tailwind::ORANGE.c300)
                 .bg(tailwind::SLATE.c900)
                 .add_modifier(Modifier::BOLD)
+        } else if i == app.archive_idx && app.current_pane == CurrentPane::Browser {
+            Style::default().fg(tailwind::ORANGE.c300)
         } else {
             Style::default().fg(Color::White)
         };
