@@ -325,4 +325,10 @@ impl App {
 
         Ok(())
     }
+
+    pub fn clear_archive(&mut self) {
+        self.current_archive = None;
+        self.archive_names = HashSet::new();
+        self.current_pane = CurrentPane::Browser;
+    }
 }
