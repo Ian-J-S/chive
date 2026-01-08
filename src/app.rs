@@ -148,6 +148,7 @@ impl App {
         Ok(())
     }
 
+    /// Helper function for adding a file to the current archive.
     fn append_to_archive(&mut self, full_path: &Path, path: &Path) -> Result<()> {
         self.archive_names.insert(path.to_path_buf());
         self.current_archive
@@ -157,6 +158,7 @@ impl App {
         Ok(())
     }
 
+    /// Append the current selected browser-pane file to the archive.
     pub fn add_file_to_archive(&mut self) -> Result<()> {
         let full_path = self.get_selected_browser();
         let path = full_path.strip_prefix(self.browser_path.clone())?;
@@ -189,6 +191,7 @@ impl App {
         Ok(())
     }
 
+    /// Save the currently built/loaded archive.
     pub fn save_archive(&mut self) -> Result<()> {
         let builder = self
             .current_archive
@@ -207,6 +210,7 @@ impl App {
         Ok(())
     }
 
+    /// Increase or decrease the selected index in the archive pane.
     pub fn update_archive_idx(&mut self, step: isize) {
         let new_idx = if !self.archive_names.is_empty() {
             if step >= 0 {
@@ -222,6 +226,9 @@ impl App {
         self.archive_idx = new_idx;
     }
 
+    /// Extract an archive.
+    /// When an archive is selected in the browser window, extract that.
+    /// If the archive pane is active, extract the currently loaded archive.
     pub fn extract_archive(&mut self) -> Result<()> {
         match self.current_pane {
             CurrentPane::Browser => {
@@ -341,6 +348,7 @@ impl App {
         Ok(())
     }
 
+    /// Discard the current archive and reset.
     pub fn clear_archive(&mut self) {
         self.current_archive = None;
         self.archive_names = HashSet::new();
