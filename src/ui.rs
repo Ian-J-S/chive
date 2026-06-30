@@ -23,9 +23,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     ])
     .split(title_layout[0]);
 
-    if app.show_footer {
-        render_footer(frame, title_layout[1]);
-    }
+    render_footer(frame, title_layout[1]);
     render_browser(frame, app, main_layout[0]);
     render_archive(frame, app, main_layout[1]);
 }
