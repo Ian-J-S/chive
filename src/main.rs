@@ -90,6 +90,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     KeyCode::Tab => {
                         app.toggle_pane();
                     }
+                    KeyCode::Char('f') => {
+                        app.toggle_footer();
+                    }
                     _ => {}
                 }
                 CurrentPane::Archive => match key.code {

@@ -11,11 +11,17 @@ use std::path::{Path, PathBuf};
 use crate::app::{App, CurrentPane};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
-    let title_layout = Layout::vertical([
-        Constraint::Percentage(90),
-        Constraint::Percentage(10),
-    ])
-    .split(frame.area());
+    let title_layout = if app.show_footer {
+        Layout::vertical([
+            Constraint::Percentage(90),
+            Constraint::Percentage(10),
+        ])
+        .split(frame.area())
+    } else {
+        Layout::vertical([
+            Constraint::Percentage(100),
+        ]).split(frame.area())
+    };
 
     let main_layout = Layout::horizontal([
         Constraint::Percentage(50),
@@ -23,7 +29,9 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     ])
     .split(title_layout[0]);
 
-    render_footer(frame, title_layout[1]);
+    if app.show_footer {
+        render_footer(frame, title_layout[1]);
+    }
     render_browser(frame, app, main_layout[0]);
     render_archive(frame, app, main_layout[1]);
 }
