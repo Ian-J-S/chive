@@ -90,7 +90,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     KeyCode::Tab => {
                         app.toggle_pane();
                     }
-                    KeyCode::Char('h') => {
+                    KeyCode::Char('?') => {
                         app.toggle_footer();
                     }
                     _ => {}
@@ -124,7 +124,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                         app.remove_from_archive()?;
                         app.refresh()?;
                     }
-                    KeyCode::Char('h') => {
+                    KeyCode::Char('?') => {
                         app.toggle_footer();
                     }
                     _ => {}
