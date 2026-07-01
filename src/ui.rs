@@ -30,15 +30,63 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     .split(title_layout[0]);
 
     if app.show_footer {
-        render_footer(frame, title_layout[1]);
+        render_footer(frame, title_layout[1], &app.current_pane);
     }
     render_browser(frame, app, main_layout[0]);
     render_archive(frame, app, main_layout[1]);
 }
 
-fn render_footer(frame: &mut Frame, area: Rect) {
+fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
+    let browser_style = Style::default().fg(tailwind::BLUE.c400).add_modifier(Modifier::BOLD);
+    let archive_style = Style::default().fg(tailwind::ORANGE.c400).add_modifier(Modifier::BOLD);
+
+    // I kind of hate this but it works for now
+    let hints = match current_pane {
+        CurrentPane::Browser => {
+            Line::from(vec![
+                Span::styled("<q>", browser_style),
+                Span::raw(": Quit, "),
+                Span::styled("<j/k>", browser_style),
+                Span::raw(": U/D, "),
+                Span::styled("<tab>", browser_style),
+                Span::raw(": Toggle Pane, "),
+                Span::styled("<space>", browser_style),
+                Span::raw(": Change dir, "),
+                Span::styled("<.>", browser_style),
+                Span::raw(": Toggle hidden, "),
+                Span::styled("<a>", browser_style),
+                Span::raw(": add, "),
+                Span::styled("<l>", browser_style),
+                Span::raw(": load archive, "),
+                Span::styled("<e>", browser_style),
+                Span::raw(": extract archive, "),
+                Span::styled("<r>", browser_style),
+                Span::raw(": refresh files"),
+            ])
+        }
+        CurrentPane::Archive => {
+            Line::from(vec![
+                Span::styled("<q>", archive_style),
+                Span::raw(": Quit, "),
+                Span::styled("<j/k>", archive_style),
+                Span::raw(": U/D, "),
+                Span::styled("<tab>", archive_style),
+                Span::raw(": Toggle Pane, "),
+                Span::styled("<c>", archive_style),
+                Span::raw(": clear, "),
+                Span::styled("<s>", archive_style),
+                Span::raw(": save, "),
+                Span::styled("<a>", archive_style),
+                Span::raw(": remove, "),
+            ])
+        }
+    };
+
+    let paragraph = Paragraph::new(hints)
+        .block(Block::default().borders(Borders::ALL).title("Keybinds"));
+
     frame.render_widget(
-        Paragraph::new("Footer").block(Block::new().borders(Borders::ALL)),
+        paragraph,
         area,
     );
 }
