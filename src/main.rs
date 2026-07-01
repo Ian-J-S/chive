@@ -90,6 +90,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     KeyCode::Tab => {
                         app.toggle_pane();
                     }
+                    KeyCode::Char('?') => {
+                        app.toggle_footer();
+                    }
                     _ => {}
                 }
                 CurrentPane::Archive => match key.code {
@@ -120,6 +123,9 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool
                     KeyCode::Char('a') => {
                         app.remove_from_archive()?;
                         app.refresh()?;
+                    }
+                    KeyCode::Char('?') => {
+                        app.toggle_footer();
                     }
                     _ => {}
                 }

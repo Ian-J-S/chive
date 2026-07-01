@@ -31,6 +31,7 @@ pub struct App {
     pub archive_names: HashSet<PathBuf>,  // Stores unique file names, not full paths
     pub current_archive: Option<Builder<GzEncoder<File>>>,
     pub archive_idx: usize,
+    pub show_footer: bool,
 }
 
 impl App {
@@ -46,6 +47,7 @@ impl App {
             archive_names: HashSet::new(),
             current_archive: None,
             archive_idx: 0, 
+            show_footer: false,
         }
     }
 
@@ -354,5 +356,9 @@ impl App {
         self.current_archive = None;
         self.archive_names = HashSet::new();
         self.current_pane = CurrentPane::Browser;
+    }
+
+    pub fn toggle_footer(&mut self) {
+        self.show_footer = !self.show_footer;
     }
 }
