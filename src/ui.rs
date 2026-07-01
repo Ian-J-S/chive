@@ -107,7 +107,20 @@ fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
         current_pane,
         show_hidden,
     ));
-    let browser_block = browser_block(current_pane);
+
+    let hint_style = Style::default().fg(Color::Gray).add_modifier(Modifier::DIM);
+    let hint_text = if !app.show_footer {
+        Line::from(vec![
+            Span::styled("Press ", hint_style),
+            Span::styled("?", Style::default().fg(tailwind::BLUE.c400).add_modifier(Modifier::BOLD)),
+            Span::styled(" for help", hint_style),
+        ])
+    } else {
+        Line::from(vec![])
+    };
+
+    let browser_block = browser_block(current_pane)
+        .title_bottom(hint_text);
 
     app.browser_list_state.select(Some(browser_idx));
 
