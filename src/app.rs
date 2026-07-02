@@ -32,6 +32,7 @@ pub struct App {
     pub current_archive: Option<Builder<GzEncoder<File>>>,
     pub archive_idx: usize,
     pub show_footer: bool,
+    pub should_quit: bool,
 }
 
 impl App {
@@ -48,6 +49,7 @@ impl App {
             current_archive: None,
             archive_idx: 0, 
             show_footer: false,
+            should_quit: false,
         }
     }
 
