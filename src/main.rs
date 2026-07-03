@@ -2,20 +2,18 @@ use anyhow::Result;
 use std::io;
 
 use ratatui::{
-    backend::{Backend, CrosstermBackend},
-    crossterm::{
-        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
+    Terminal, backend::{Backend, CrosstermBackend}, crossterm::{
+        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
         execute,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-    },
-    Terminal,
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    }
 };
 
 mod app;
 mod ui;
 mod util;
 use crate::{
-    app::{App, CurrentPane},
+    app::{App, CurrentPane, InputMode},
     ui::ui,
 };
 
@@ -46,90 +44,99 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<bool> {
+fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> {
     app.browser_files = app.get_browser_files().unwrap(); // TODO - should replace with some app.init function
     loop {
         terminal.draw(|f| ui(f, app))?;
+
+        if app.should_quit {
+            return Ok(());
+        }
 
         if let Event::Key(key) = event::read()? {
             if key.kind == event::KeyEventKind::Release {
                 // Skip events that are not KeyEventKind::Press
                 continue;
             }
-            match app.current_pane {
-                CurrentPane::Browser => match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => {
-                        return Ok(false);
+            match app.input_mode {
+                InputMode::Normal => {
+                    match app.current_pane {
+                        CurrentPane::Browser => handle_browser_key(app, key)?,
+                        CurrentPane::Archive => handle_archive_key(app, key)?,
                     }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        app.update_browser_idx(1);
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        app.update_browser_idx(-1);
-                    }
-                    KeyCode::Char('r') => {
-                        app.refresh()?;
-                    }
-                    KeyCode::Char(' ') => {
-                        app.change_browser_dir()?;
-                    }
-                    KeyCode::Char('.') => {
-                        app.toggle_hidden_files()?;
-                    }
-                    KeyCode::Char('a') => {
-                        app.add_file_to_archive()?;
-                    }
-                    KeyCode::Char('l') => {
-                        app.load_archive()?;
-                    }
-                    KeyCode::Char('e') => {
-                        // Attemp to extract an existing archive
-                        app.extract_archive()?;
-                        app.refresh()?;
-                    }
-                    KeyCode::Tab => {
-                        app.toggle_pane();
-                    }
-                    KeyCode::Char('?') => {
-                        app.toggle_footer();
-                    }
-                    _ => {}
                 }
-                CurrentPane::Archive => match key.code {
-                    KeyCode::Char('q') | KeyCode::Esc => {
-                        return Ok(false);
-                    }
-                    KeyCode::Tab => {
-                        app.toggle_pane();
-                    }
-                    KeyCode::Char('c') => {
-                        app.clear_archive();
-                        app.refresh()?;
-                    }
-                    KeyCode::Char('s') => {
-                        app.save_archive()?;
-                        app.refresh()?;
-                    }
-                    KeyCode::Char('j') | KeyCode::Down => {
-                        app.update_archive_idx(1);
-                    }
-                    KeyCode::Char('k') | KeyCode::Up => {
-                        app.update_archive_idx(-1);
-                    }
-                    KeyCode::Char('e') => {
-                        app.extract_archive()?;
-                        app.refresh()?;
-                    }
-                    KeyCode::Char('a') => {
-                        app.remove_from_archive()?;
-                        app.refresh()?;
-                    }
-                    KeyCode::Char('?') => {
-                        app.toggle_footer();
-                    }
-                    _ => {}
-                }
+                InputMode::SaveWindow => handle_save_window_keys(app, key)?,
             }
         }
     }
+}
+
+fn handle_browser_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+        KeyCode::Char('j') | KeyCode::Down => app.update_browser_idx(1),
+        KeyCode::Char('k') | KeyCode::Up => app.update_browser_idx(-1),
+        KeyCode::Char('r') => app.refresh()?,
+        KeyCode::Char(' ') => app.change_browser_dir()?,
+        KeyCode::Char('.') => app.toggle_hidden_files()?,
+        KeyCode::Char('a') => app.add_file_to_archive()?,
+        KeyCode::Char('l') => app.load_archive()?,
+        KeyCode::Tab => app.toggle_pane(),
+        KeyCode::Char('?') => app.toggle_footer(),
+        KeyCode::Char('e') => {
+            app.extract_archive()?;
+            app.refresh()?;
+        }
+        KeyCode::Char('s') => {
+            app.input_mode = InputMode::SaveWindow;
+        }
+        _ => {}
+    };
+    Ok(())
+}
+
+fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+        KeyCode::Tab => app.toggle_pane(),
+        KeyCode::Char('j') | KeyCode::Down => app.update_archive_idx(1),
+        KeyCode::Char('k') | KeyCode::Up => app.update_archive_idx(-1),
+        KeyCode::Char('?') => app.toggle_footer(),
+        KeyCode::Char('e') => {
+            app.extract_archive()?;
+            app.refresh()?;
+        }
+        KeyCode::Char('c') => {
+            app.clear_archive();
+            app.refresh()?;
+        }
+        KeyCode::Char('s') => {
+            app.input_mode = InputMode::SaveWindow;
+        }
+        KeyCode::Char('a') => {
+            app.remove_from_archive()?;
+            app.refresh()?;
+        }
+        _ => {}
+    };
+    Ok(())
+}
+
+fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Enter => {
+            app.save_archive()?;
+            app.refresh()?;
+            app.input_mode = InputMode::Normal;
+        }
+        KeyCode::Esc => app.input_mode = InputMode::Normal,
+        KeyCode::Backspace => {
+            let _ = app.save_filename.pop();
+        }
+        // Use other characters to build filename
+        KeyCode::Char(to_insert) => app.enter_save_char(to_insert),
+        _ => {}
+    };
+
+    Ok(())
 }

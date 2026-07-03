@@ -1,14 +1,13 @@
 use ratatui::{
-    layout::{Constraint, Layout, Rect}, 
+    Frame, layout::{Constraint, Layout, Rect},
     prelude::Margin,
-    style::{palette::tailwind, Color, Modifier, Style},
+    style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation},
-    Frame
+    widgets::{Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation}
 };
 
 use std::path::{Path, PathBuf};
-use crate::app::{App, CurrentPane};
+use crate::app::{App, CurrentPane, InputMode};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     let title_layout = if app.show_footer {
@@ -34,6 +33,9 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     }
     render_browser(frame, app, main_layout[0]);
     render_archive(frame, app, main_layout[1]);
+    if app.input_mode == InputMode::SaveWindow {
+        render_save_popup(frame, app, frame.area());
+    }
 }
 
 fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
@@ -372,4 +374,50 @@ fn archive_block(app: &App) -> Block<'static> {
         .title("Archive")
         .border_style(border_style)
         .borders(Borders::all())
+}
+
+fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
+    let vertical = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(area);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(vertical[1])[1]
+}
+
+fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
+    let popup_area = centered_rect(40, 15, area);
+
+    // Prevent other panes from going through this new popup
+    frame.render_widget(Clear, popup_area);
+
+    let title = Span::styled("Save archive as",
+        Style::default().dim());
+
+    let popup = Paragraph::new(Line::from(vec![
+            Span::styled(app.save_filename.as_str(),
+                Style::default().bold()),
+            Span::styled(".tar.gz", Style::default().dim()),
+        ]))
+        .block(
+            Block::default()
+                .title(title)
+                .padding(Padding::new(1, 1, 1, 0))
+                .borders(Borders::ALL)
+                .title_bottom(Line::from(vec![
+                    Span::styled("<Enter>",
+                        Style::default().fg(tailwind::ORANGE.c400).bold()),
+                    Span::styled(" to save",
+                        Style::default().dim()),
+                ]))
+        );
+
+    frame.render_widget(popup, popup_area);
 }
