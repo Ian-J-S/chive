@@ -20,6 +20,12 @@ pub enum CurrentPane {
     Archive,
 }
 
+#[derive(PartialEq)]
+pub enum InputMode {
+    Normal,
+    SaveWindow,
+}
+
 pub struct App {
     pub browser_path: PathBuf,
     pub browser_files: Vec<PathBuf>,
@@ -33,6 +39,8 @@ pub struct App {
     pub archive_idx: usize,
     pub show_footer: bool,
     pub should_quit: bool,
+    pub input_mode: InputMode,
+    pub save_filename: String,
 }
 
 impl App {
@@ -50,6 +58,8 @@ impl App {
             archive_idx: 0, 
             show_footer: false,
             should_quit: false,
+            input_mode: InputMode::Normal,
+            save_filename: String::from("archive"),
         }
     }
 
@@ -209,7 +219,8 @@ impl App {
 
         temp_file.seek(SeekFrom::Start(0))?;
 
-        let mut out = File::create("test.tar.gz")?;
+        let filename = PathBuf::from(format!("{}.tar.gz", self.save_filename));
+        let mut out = File::create(filename)?;
         io::copy(&mut temp_file, &mut out)?;
 
         Ok(())
@@ -362,5 +373,9 @@ impl App {
 
     pub fn toggle_footer(&mut self) {
         self.show_footer = !self.show_footer;
+    }
+
+    pub fn enter_save_char(&mut self, to_insert: char) {
+        self.save_filename.push(to_insert);
     }
 }

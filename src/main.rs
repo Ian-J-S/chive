@@ -13,7 +13,7 @@ mod app;
 mod ui;
 mod util;
 use crate::{
-    app::{App, CurrentPane},
+    app::{App, CurrentPane, InputMode},
     ui::ui,
 };
 
@@ -58,9 +58,14 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                 // Skip events that are not KeyEventKind::Press
                 continue;
             }
-            match app.current_pane {
-                CurrentPane::Browser => handle_browser_key(app, key)?,
-                CurrentPane::Archive => handle_archive_key(app, key)?,
+            match app.input_mode {
+                InputMode::Normal => {
+                    match app.current_pane {
+                        CurrentPane::Browser => handle_browser_key(app, key)?,
+                        CurrentPane::Archive => handle_archive_key(app, key)?,
+                    }
+                }
+                InputMode::SaveWindow => handle_save_window_keys(app, key)?,
             }
         }
     }
@@ -103,8 +108,7 @@ fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
             app.refresh()?;
         }
         KeyCode::Char('s') => {
-            app.save_archive()?;
-            app.refresh()?;
+            app.input_mode = InputMode::SaveWindow;
         }
         KeyCode::Char('a') => {
             app.remove_from_archive()?;
@@ -112,5 +116,24 @@ fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         _ => {}
     };
+    Ok(())
+}
+
+fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Enter => {
+            app.save_archive()?;
+            app.refresh()?;
+            app.input_mode = InputMode::Normal;
+        }
+        KeyCode::Esc => app.input_mode = InputMode::Normal,
+        KeyCode::Backspace => {
+            let _ = app.save_filename.pop();
+        }
+        // Use other characters to build filename
+        KeyCode::Char(to_insert) => app.enter_save_char(to_insert),
+        _ => {}
+    };
+
     Ok(())
 }
