@@ -3,7 +3,7 @@ use ratatui::{
     prelude::Margin,
     style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation}
+    widgets::{Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation}
 };
 
 use std::path::{Path, PathBuf};
@@ -393,7 +393,7 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
 }
 
 fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
-    let popup_area = centered_rect(40, 20, area);
+    let popup_area = centered_rect(40, 15, area);
 
     // Prevent other panes from going through this new popup
     frame.render_widget(Clear, popup_area);
@@ -401,10 +401,15 @@ fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
     let title = Span::styled("Save archive as",
         Style::default().dim());
 
-    let popup = Paragraph::new(app.save_filename.as_str())
+    let popup = Paragraph::new(Line::from(vec![
+            Span::styled(app.save_filename.as_str(),
+                Style::default().bold()),
+            Span::styled(".tar.gz", Style::default().dim()),
+        ]))
         .block(
             Block::default()
                 .title(title)
+                .padding(Padding::new(1, 1, 1, 0))
                 .borders(Borders::ALL)
                 .title_bottom(Line::from(vec![
                     Span::styled("<Enter>",
