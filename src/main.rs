@@ -87,6 +87,9 @@ fn handle_browser_key(app: &mut App, key: KeyEvent) -> Result<()> {
             app.extract_archive()?;
             app.refresh()?;
         }
+        KeyCode::Char('s') => {
+            app.input_mode = InputMode::SaveWindow;
+        }
         _ => {}
     };
     Ok(())
