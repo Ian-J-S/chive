@@ -141,6 +141,10 @@ impl App {
     /// Refresh files in file browser.
     pub fn refresh(&mut self) -> io::Result<()> {
         self.browser_files = self.get_browser_files()?;
+
+        // Prevent incorrect index when last file in directory is removed
+        self.browser_idx = self.browser_idx.clamp(0, self.browser_files.len() - 1);
+
         Ok(())
     }
 
