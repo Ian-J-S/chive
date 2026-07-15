@@ -238,6 +238,8 @@ impl App {
         let mut out = File::create(filename)?;
         io::copy(&mut temp_file, &mut out)?;
 
+        self.set_info_msg(&format!("Saved to {}.tar.gz", self.save_filename));
+
         Ok(())
     }
 
@@ -291,6 +293,8 @@ impl App {
                 archive.unpack(unpack_dst)?;
             }
         }
+
+        self.set_info_msg("Extracted archive");
 
         Ok(())
     }
@@ -376,6 +380,8 @@ impl App {
 
         self.current_archive = Some(new_builder);
 
+        self.set_info_msg("Loaded archive");
+
         Ok(())
     }
 
@@ -384,6 +390,7 @@ impl App {
         self.current_archive = None;
         self.archive_names = HashSet::new();
         self.current_pane = CurrentPane::Browser;
+        self.set_info_msg("Cleared current archive");
     }
 
     pub fn toggle_footer(&mut self) {
@@ -400,6 +407,11 @@ impl App {
 
     pub fn decrease_comp_strength(&mut self) {
         self.compression_strength = self.compression_strength.saturating_sub(1);
+    }
+
+    pub fn confirm_compression(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.set_info_msg(&format!("Compression strength set to {}", self.compression_strength));
     }
 
     pub fn set_info_msg(&mut self, msg: &str) {
