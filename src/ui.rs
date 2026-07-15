@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{BarChart, Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation}
 };
 
-use std::path::{Path, PathBuf};
+use std::{path::{Path, PathBuf}, time::Instant};
 use crate::app::{App, CurrentPane, InputMode};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
@@ -31,8 +31,17 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     if app.show_footer {
         render_footer(frame, title_layout[1], &app.current_pane);
     }
+
     render_browser(frame, app, main_layout[0]);
     render_archive(frame, app, main_layout[1]);
+
+    if let Some(info_msg) = &app.info_message {
+        if info_msg.timeout > Instant::now() {
+            render_message_window(frame, &info_msg.msg, frame.area());
+        } else {
+            app.info_message = None;
+        }
+    }
 
     // Render additional popups if needed
     match app.input_mode {
@@ -464,4 +473,17 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
 
     frame.render_widget(chart, popup_area);
     // frame.render_widget(popup, popup_area);
+}
+
+fn render_message_window(frame: &mut Frame, msg: &str, area: Rect) {
+    let msg_width = msg.len() as u16 + 2;
+    let msg_height = 3;
+    let msg_x = area.width - (msg_width + 1);
+    let msg_y = area.height - (msg_height + 1);
+
+    let rect = Rect::new(msg_x, msg_y, msg_width, msg_height);
+    let par = Paragraph::new(msg)
+        .block(Block::bordered());
+
+    frame.render_widget(par, rect);
 }
