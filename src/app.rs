@@ -24,6 +24,7 @@ pub enum CurrentPane {
 pub enum InputMode {
     Normal,
     SaveWindow,
+    CompressionStrength,
 }
 
 pub struct App {
@@ -41,6 +42,7 @@ pub struct App {
     pub should_quit: bool,
     pub input_mode: InputMode,
     pub save_filename: String,
+    pub compression_strength: u32,
 }
 
 impl App {
@@ -58,8 +60,9 @@ impl App {
             archive_idx: 0, 
             show_footer: false,
             should_quit: false,
-            input_mode: InputMode::Normal,
+            input_mode: InputMode::CompressionStrength,
             save_filename: String::from("archive"),
+            compression_strength: 6, // Default gzip compression level
         }
     }
 
@@ -160,7 +163,7 @@ impl App {
     /// Create a compressed archive from the selected paths
     pub fn create_archive(&mut self) -> Result<()> {
         let file = tempfile()?; 
-        let gz = GzEncoder::new(file, Compression::default());
+        let gz = GzEncoder::new(file, Compression::new(self.compression_strength));
         let ar = Builder::new(gz);
         self.current_archive = Some(ar);
 
@@ -313,7 +316,7 @@ impl App {
         let mut archive = Archive::new(decoder);
 
         let new_file = tempfile()?;
-        let gz = GzEncoder::new(new_file, Compression::default());
+        let gz = GzEncoder::new(new_file, Compression::new(self.compression_strength));
         let mut new_builder = Builder::new(gz);
 
         for entry_res in archive.entries()? {
@@ -350,7 +353,7 @@ impl App {
 
         // Create a tempfile and encoder for the new archive
         let new_file = tempfile()?;
-        let gz = GzEncoder::new(new_file, Compression::default());
+        let gz = GzEncoder::new(new_file, Compression::new(self.compression_strength));
         let mut new_builder = Builder::new(gz);
 
         // Copy entries from archive into new builder
@@ -381,5 +384,13 @@ impl App {
 
     pub fn enter_save_char(&mut self, to_insert: char) {
         self.save_filename.push(to_insert);
+    }
+
+    pub fn increase_comp_strength(&mut self) {
+        self.compression_strength = (self.compression_strength + 1).min(9);
+    }
+
+    pub fn decrease_comp_strength(&mut self) {
+        self.compression_strength = self.compression_strength.saturating_sub(1);
     }
 }
