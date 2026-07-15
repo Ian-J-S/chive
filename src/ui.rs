@@ -3,7 +3,7 @@ use ratatui::{
     prelude::Margin,
     style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation}
+    widgets::{BarChart, Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation}
 };
 
 use std::path::{Path, PathBuf};
@@ -33,9 +33,13 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     }
     render_browser(frame, app, main_layout[0]);
     render_archive(frame, app, main_layout[1]);
-    if app.input_mode == InputMode::SaveWindow {
-        render_save_popup(frame, app, frame.area());
-    }
+
+    // Render additional popups if needed
+    match app.input_mode {
+        InputMode::SaveWindow => render_save_popup(frame, app, frame.area()),
+        InputMode::CompressionStrength => render_comp_str_popup(frame, app, frame.area()),
+        InputMode::Normal => {} // No additional rendering needed if we are in Normal mode
+    };
 }
 
 fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
@@ -338,6 +342,11 @@ fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
         format!("Showing hidden? {}", app.show_hidden),
         Style::default().fg(Color::White),
     ))));
+
+    items.push(ListItem::new(Line::from(Span::styled(
+        format!("Compression stren: {}", app.compression_strength),
+        Style::default().fg(Color::White),
+    ))));
 }
 
 fn browser_block(current_pane: CurrentPane) -> Block<'static> {
@@ -420,4 +429,39 @@ fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
         );
 
     frame.render_widget(popup, popup_area);
+}
+
+fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
+    let popup_area = centered_rect(40, 15, area);
+
+    // Prevent other panes from going through this new popup
+    frame.render_widget(Clear, popup_area);
+
+    let title = Span::styled("Choose compression strength",
+        Style::default().dim());
+
+    let chart = BarChart::default()
+        .direction(ratatui::layout::Direction::Horizontal)
+        .block(
+            Block::bordered()
+                .title(title)
+                .padding(Padding::symmetric(2, 1))
+                .title_bottom(Line::from(vec![
+                    Span::styled("<Enter>",
+                        Style::default().fg(tailwind::ORANGE.c400).bold()),
+                    Span::styled(" to confirm",
+                        Style::default().dim()),
+                ]))
+        )
+        // .bar_width(1)
+        // .bar_gap(1)
+        // .group_gap(3)
+        .bar_style(Style::new().fg(tailwind::ORANGE.c400))
+        .value_style(Style::new().fg(Color::White))
+        // .label_style(Style::new().white())
+        .data(&[("Strength", app.compression_strength.into())])
+        .max(9);
+
+    frame.render_widget(chart, popup_area);
+    // frame.render_widget(popup, popup_area);
 }
