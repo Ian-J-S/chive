@@ -24,6 +24,7 @@ pub enum CurrentPane {
 pub enum InputMode {
     Normal,
     SaveWindow,
+    CompressionStrength,
 }
 
 pub struct App {
@@ -59,7 +60,7 @@ impl App {
             archive_idx: 0, 
             show_footer: false,
             should_quit: false,
-            input_mode: InputMode::Normal,
+            input_mode: InputMode::CompressionStrength,
             save_filename: String::from("archive"),
             compression_strength: 6, // Default gzip compression level
         }

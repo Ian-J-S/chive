@@ -65,6 +65,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                         CurrentPane::Archive => handle_archive_key(app, key)?,
                     }
                 }
+                InputMode::CompressionStrength => handle_comp_strength_key(app, key)?,
                 InputMode::SaveWindow => handle_save_window_keys(app, key)?,
             }
         }
@@ -135,6 +136,17 @@ fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         // Use other characters to build filename
         KeyCode::Char(to_insert) => app.enter_save_char(to_insert),
+        _ => {}
+    };
+
+    Ok(())
+}
+
+fn handle_comp_strength_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => app.input_mode = InputMode::Normal,
+        KeyCode::Char('+') => app.increase_comp_strength(),
+        KeyCode::Char('-') => app.decrease_comp_strength(),
         _ => {}
     };
 
