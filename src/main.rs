@@ -144,7 +144,7 @@ fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
 
 fn handle_comp_strength_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
-        KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => app.input_mode = InputMode::Normal,
+        KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => app.confirm_compression(),
         KeyCode::Char('+') => app.increase_comp_strength(),
         KeyCode::Char('-') => app.decrease_comp_strength(),
         _ => {}
