@@ -52,11 +52,28 @@ impl AppArchive for Zip {
     }
 
     fn extract_archive_file(archive_path: &Path, destination: &Path) -> Result<()> {
-        todo!();
+        let file = File::open(archive_path)?;
+        let mut archive = ZipArchive::new(file)?;
+
+        archive.extract(destination)?;
+
+        Ok(())
     }
 
     fn extract_current(&mut self, destination: &Path) -> Result<()> {
-        todo!();
+        let writer = self.writer
+            .take()
+            .ok_or_else(|| anyhow!("Current archive does not exist"))?;
+
+        let file = writer.finish()?;
+        let mut archive = ZipArchive::new(file)?;
+        archive.extract(destination)?;
+
+        // Reconvert arhive back into usable writer
+        let file = archive.into_inner();
+        self.writer = Some(ZipWriter::new_append(file)?);
+
+        Ok(())
     }
 
     fn remove_from_archive(&mut self, file_to_remove: &Path) -> Result<()> {

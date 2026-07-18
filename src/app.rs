@@ -216,13 +216,18 @@ impl<A: AppArchive> App<A> {
     }
 
     pub fn extract_archive(&mut self) -> Result<()> {
-        let archive_path = self.get_selected_browser();
-        let destination = self.browser_path.join(strip_all_extensions(&archive_path));
-
-        if let Some(archive) = self.current_archive.as_mut() {
-            archive.extract_current(&destination)?;
-        } else {
-            A::extract_archive_file(&archive_path, &destination)?;
+        match self.current_pane {
+            CurrentPane::Browser => {
+                let archive_path = self.get_selected_browser();
+                let destination = self.browser_path.join(strip_all_extensions(&archive_path));
+                A::extract_archive_file(&archive_path, &destination)?
+            },
+            CurrentPane::Archive => {
+                if let Some(archive) = self.current_archive.as_mut() {
+                    let destination = self.browser_path.join(PathBuf::from("extract"));
+                    archive.extract_current(&destination)?;
+                }
+            }
         }
 
         Ok(())
