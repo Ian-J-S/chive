@@ -10,6 +10,7 @@ use ratatui::{
 };
 
 mod app;
+mod archive;
 mod ui;
 mod util;
 use crate::{
