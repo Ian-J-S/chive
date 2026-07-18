@@ -31,7 +31,7 @@ pub struct InfoMsg {
     pub timeout: Instant,
 }
 
-pub struct App<A: AppArchive = TarGz> {
+pub struct App<A: AppArchive = Zip> {
     pub browser_path: PathBuf,
     pub browser_files: Vec<PathBuf>,
     pub browser_idx: usize,

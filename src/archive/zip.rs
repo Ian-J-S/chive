@@ -93,6 +93,39 @@ impl AppArchive for Zip {
     }
 
     fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
-        todo!();
+        let source = File::open(path)?;
+        let mut archive = ZipArchive::new(source)?;
+
+        let mut entry_names = Vec::with_capacity(archive.len());
+
+        for index in 0..archive.len() {
+            let entry = archive.by_index(index)?;
+
+            let entry_path = entry
+                .enclosed_name()
+                .ok_or_else(|| anyhow!("Unsafe ZIP entry path: {}", entry.name()))?;
+
+            entry_names.push(entry_path);
+        }
+
+        let mut temp_file = NamedTempFile::new_in(".")?;
+        let mut source = File::open(path)?;
+
+        std::io::copy(&mut source, &mut temp_file)?;
+        temp_file.rewind()?;
+
+        let writer = ZipWriter::new_append(temp_file)?;
+
+        let file_options = SimpleFileOptions::default()
+            .compression_method(CompressionMethod::Deflated)
+            .compression_level(Some(compression_strength.into()));
+
+        Ok((
+            Zip {
+                writer: Some(writer),
+                file_options
+            },
+            entry_names,
+        ))
     }
 }
