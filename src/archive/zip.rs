@@ -1,8 +1,8 @@
 use crate::archive::traits::AppArchive;
 use anyhow::{anyhow, Result};
 use tempfile::NamedTempFile;
-use std::{fs::File, path::{Path, PathBuf}};
-use zip::{CompressionMethod, ZipWriter, write::SimpleFileOptions};
+use std::{fs::File, io::{Cursor, Seek, SeekFrom}, path::{Path, PathBuf}};
+use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 pub struct Zip {
     writer: Option<ZipWriter<NamedTempFile>>,
@@ -55,7 +55,35 @@ impl AppArchive for Zip {
     }
 
     fn remove_from_archive(&mut self, file_to_remove: &Path) -> Result<()> {
-        todo!();
+        let mut inner_file = self.writer
+            .take()
+            .ok_or_else(|| anyhow!("Current archive does not exist"))?
+            .finish()?;
+
+        inner_file.rewind()?;
+
+        let mut archive = ZipArchive::new(inner_file)?;
+
+        let new_file = NamedTempFile::new_in(".")?;
+        let mut new_writer = ZipWriter::new(new_file);
+
+        // Loop over existing files, copy all except file_to_remove
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)?;
+
+            let name = file.name().to_string();
+
+            if name == file_to_remove.to_string_lossy() {
+                continue;
+            }
+
+            new_writer.start_file(name, SimpleFileOptions::default())?;
+            std::io::copy(&mut file, &mut new_writer)?;
+        }
+
+        self.writer = Some(new_writer);
+
+        Ok(())
     }
 
     fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)>  {
