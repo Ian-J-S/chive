@@ -8,6 +8,7 @@ use std::io;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
+use crate::archive::zip::Zip;
 use crate::archive::{tar_gz::TarGz, traits::AppArchive};
 
 use crate::util::strip_all_extensions;
@@ -38,7 +39,7 @@ pub struct App<A: AppArchive = TarGz> {
     pub browser_scrollbar: ScrollbarState,
     pub current_pane: CurrentPane,
     pub show_hidden: bool,
-    pub archive_names: HashSet<PathBuf>,  // Stores unique file names, not full paths
+    pub archive_names: HashSet<PathBuf>, // Stores unique file names, not full paths
     pub current_archive: Option<A>,
     pub archive_idx: usize,
     pub show_footer: bool,
@@ -241,8 +242,14 @@ impl<A: AppArchive> App<A> {
         if let Some(archive) = self.current_archive.as_mut() {
             archive.remove_from_archive(&file_to_remove)?;
         }
+        self.set_info_msg(&format!(
+            "file to remove: {}",
+            file_to_remove.to_string_lossy()
+        ));
         self.archive_names.remove(&file_to_remove);
-        self.archive_idx = self.archive_idx.clamp(0, self.archive_names.len().saturating_sub(1));
+        self.archive_idx = self
+            .archive_idx
+            .clamp(0, self.archive_names.len().saturating_sub(1));
 
         Ok(())
     }

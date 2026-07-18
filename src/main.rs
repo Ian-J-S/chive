@@ -2,11 +2,13 @@ use anyhow::Result;
 use std::io;
 
 use ratatui::{
-    Terminal, backend::{Backend, CrosstermBackend}, crossterm::{
+    Terminal,
+    backend::{Backend, CrosstermBackend},
+    crossterm::{
         event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
-    }
+    },
 };
 
 mod app;
@@ -60,12 +62,10 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                 continue;
             }
             match app.input_mode {
-                InputMode::Normal => {
-                    match app.current_pane {
-                        CurrentPane::Browser => handle_browser_key(app, key)?,
-                        CurrentPane::Archive => handle_archive_key(app, key)?,
-                    }
-                }
+                InputMode::Normal => match app.current_pane {
+                    CurrentPane::Browser => handle_browser_key(app, key)?,
+                    CurrentPane::Archive => handle_archive_key(app, key)?,
+                },
                 InputMode::CompressionStrength => handle_comp_strength_key(app, key)?,
                 InputMode::SaveWindow => handle_save_window_keys(app, key)?,
             }

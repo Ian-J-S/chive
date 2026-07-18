@@ -14,7 +14,6 @@ pub struct TarGz {
 }
 
 impl AppArchive for TarGz {
-
     fn new(compression_strength: u32) -> Result<Self> {
         let file = tempfile()?;
         let gz = GzEncoder::new(file, Compression::new(compression_strength));

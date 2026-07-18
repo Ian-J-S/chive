@@ -1,7 +1,11 @@
 use crate::archive::traits::AppArchive;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
+use std::{
+    fs::File,
+    io::Seek,
+    path::{Path, PathBuf},
+};
 use tempfile::NamedTempFile;
-use std::{fs::File, io::{Cursor, Seek, SeekFrom}, path::{Path, PathBuf}};
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 pub struct Zip {
@@ -21,7 +25,7 @@ impl AppArchive for Zip {
 
     fn add_file_to_archive(&mut self, full_path: &Path, archive_path: &Path) -> Result<()> {
         if let Some(writer) = self.writer.as_mut() {
-        let file_name = archive_path.to_string_lossy();
+            let file_name = archive_path.to_string_lossy();
             writer.start_file(file_name, self.file_options)?;
 
             let mut source = File::open(full_path)?;
@@ -33,7 +37,8 @@ impl AppArchive for Zip {
     }
 
     fn save_archive(self, save_filename: &str) -> Result<()> {
-        let temp_file = self.writer
+        let temp_file = self
+            .writer
             .ok_or_else(|| anyhow!("Current archive does not exist"))?
             .finish()?;
 
@@ -55,7 +60,8 @@ impl AppArchive for Zip {
     }
 
     fn remove_from_archive(&mut self, file_to_remove: &Path) -> Result<()> {
-        let mut inner_file = self.writer
+        let mut inner_file = self
+            .writer
             .take()
             .ok_or_else(|| anyhow!("Current archive does not exist"))?
             .finish()?;
@@ -86,7 +92,7 @@ impl AppArchive for Zip {
         Ok(())
     }
 
-    fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)>  {
+    fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
         todo!();
     }
 }
