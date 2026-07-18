@@ -2,8 +2,6 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 
 pub trait AppArchive {
-    type Output;
-
     fn new(compression_strength: u32) -> Result<Self>
     where
         Self: Sized;
