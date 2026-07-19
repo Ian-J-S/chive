@@ -1,17 +1,17 @@
-use anyhow::{anyhow, Result};
-use flate2::Compression;
-use flate2::read::MultiGzDecoder;
-use flate2::write::GzEncoder;
+use anyhow::{Result, anyhow};
+use core::fmt;
+use path_clean::PathClean;
+use ratatui::widgets::{ListState, ScrollbarState};
 use std::collections::HashSet;
 use std::env;
-use std::io::{self, Seek, SeekFrom};
-use std::fs::{File, read_dir};
+use std::fmt::Display;
+use std::fs::read_dir;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
-use path_clean::PathClean;
-use ratatui::widgets::{ScrollbarState, ListState};
-use tar::{Archive, Builder};
-use tempfile::tempfile;
+
+use crate::archive::zip::Zip;
+use crate::archive::{tar_gz::TarGz, traits::AppArchive};
 
 use crate::util::strip_all_extensions;
 
@@ -26,11 +26,81 @@ pub enum InputMode {
     Normal,
     SaveWindow,
     CompressionStrength,
+    ArchiveType,
 }
 
 pub struct InfoMsg {
     pub msg: String,
     pub timeout: Instant,
+}
+
+#[derive(PartialEq, Eq, Clone, Copy)]
+pub enum ArchiveType {
+    Zip,
+    TarGz,
+}
+
+impl ArchiveType {
+    pub const ALL: [Self; 2] = [Self::Zip, Self::TarGz];
+
+    pub fn from_path(path: &Path) -> Result<Self> {
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| anyhow!("Archive path has no valid file name"))?;
+
+        if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+            Ok(Self::TarGz)
+        } else if name.ends_with(".zip") {
+            Ok(Self::Zip)
+        } else {
+            Err(anyhow!("Unsupported archive type: {name}"))
+        }
+    }
+
+    pub fn index(self) -> usize {
+        Self::ALL.iter().position(|kind| *kind == self).unwrap_or(0)
+    }
+
+    pub fn next(self) -> Self {
+        let next = (self.index() + 1) % Self::ALL.len();
+        Self::ALL[next]
+    }
+
+    pub fn previous(self) -> Self {
+        let previous = self.index().checked_sub(1).unwrap_or(Self::ALL.len() - 1);
+
+        Self::ALL[previous]
+    }
+}
+
+impl Display for ArchiveType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        let st = match self {
+            Self::TarGz => ".tar.gz",
+            Self::Zip => ".zip",
+        };
+        write!(f, "{st}")
+    }
+}
+
+pub fn load_archive_from_file(
+    path: &Path,
+    compression_strength: u32,
+) -> Result<(Box<dyn AppArchive>, Vec<PathBuf>)> {
+    match ArchiveType::from_path(path)? {
+        ArchiveType::Zip => {
+            let (archive, names) = Zip::load_from_file(path, compression_strength)?;
+
+            Ok((Box::new(archive), names))
+        }
+
+        ArchiveType::TarGz => {
+            let (archive, names) = TarGz::load_from_file(path, compression_strength)?;
+
+            Ok((Box::new(archive), names))
+        }
+    }
 }
 
 pub struct App {
@@ -41,8 +111,8 @@ pub struct App {
     pub browser_scrollbar: ScrollbarState,
     pub current_pane: CurrentPane,
     pub show_hidden: bool,
-    pub archive_names: HashSet<PathBuf>,  // Stores unique file names, not full paths
-    pub current_archive: Option<Builder<GzEncoder<File>>>,
+    pub archive_names: HashSet<PathBuf>, // Stores unique file names, not full paths
+    pub current_archive: Option<Box<dyn AppArchive>>,
     pub archive_idx: usize,
     pub show_footer: bool,
     pub should_quit: bool,
@@ -50,6 +120,14 @@ pub struct App {
     pub save_filename: String,
     pub compression_strength: u32,
     pub info_message: Option<InfoMsg>,
+    pub archive_type: ArchiveType,
+}
+
+pub fn create_archive(kind: ArchiveType, compression_strength: u32) -> Result<Box<dyn AppArchive>> {
+    match kind {
+        ArchiveType::Zip => Ok(Box::new(Zip::new(compression_strength)?)),
+        ArchiveType::TarGz => Ok(Box::new(TarGz::new(compression_strength)?)),
+    }
 }
 
 impl App {
@@ -64,13 +142,14 @@ impl App {
             show_hidden: false,
             archive_names: HashSet::new(),
             current_archive: None,
-            archive_idx: 0, 
+            archive_idx: 0,
             show_footer: false,
             should_quit: false,
             input_mode: InputMode::CompressionStrength,
             save_filename: String::from("archive"),
-            compression_strength: 6, // Default gzip compression level
+            compression_strength: 6, // Default compression level
             info_message: None,
+            archive_type: ArchiveType::Zip, // Default to Zip
         }
     }
 
@@ -79,11 +158,13 @@ impl App {
         let mut entries = read_dir(self.browser_path.clone())?
             .map(|res| res.map(|e| e.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
-     
+
         if !self.show_hidden {
             entries.retain(|p| {
-                !p.file_name().expect("No file name")
-                .to_string_lossy().starts_with(".")
+                !p.file_name()
+                    .expect("No file name")
+                    .to_string_lossy()
+                    .starts_with(".")
             });
         }
         entries.sort();
@@ -99,10 +180,7 @@ impl App {
 
     /// Get current file under cursor in the archive pane.
     fn get_selected_archive(&self) -> Option<PathBuf> {
-        self.archive_names
-            .iter()
-            .nth(self.archive_idx)
-            .cloned()
+        self.archive_names.iter().nth(self.archive_idx).cloned()
     }
 
     /// Increase or decrease the selected index in the file browser.
@@ -110,8 +188,8 @@ impl App {
         let new_idx = if step >= 0 {
             self.browser_idx.wrapping_add(step as usize) % self.browser_files.len()
         } else {
-            ((self.browser_idx as isize + step)
-                .rem_euclid(self.browser_files.len() as isize)) as usize
+            ((self.browser_idx as isize + step).rem_euclid(self.browser_files.len() as isize))
+                as usize
         };
 
         self.browser_idx = new_idx;
@@ -121,10 +199,13 @@ impl App {
     /// If the selected file isn't a directory, do nothing.
     pub fn change_browser_dir(&mut self) -> io::Result<()> {
         let selected_path = self.browser_files[self.browser_idx].clone();
-        let new_path = if selected_path.to_str()
-            .expect("Unable to convert path to string") == ".." {
-
-            self.browser_path.parent()
+        let new_path = if selected_path
+            .to_str()
+            .expect("Unable to convert path to string")
+            == ".."
+        {
+            self.browser_path
+                .parent()
                 .expect("No parent dir")
                 .to_path_buf()
         } else {
@@ -168,78 +249,107 @@ impl App {
         }
     }
 
-    /// Create a compressed archive from the selected paths
-    pub fn create_archive(&mut self) -> Result<()> {
-        let file = tempfile()?; 
-        let gz = GzEncoder::new(file, Compression::new(self.compression_strength));
-        let ar = Builder::new(gz);
-        self.current_archive = Some(ar);
-
-        Ok(())
-    }
-
-    /// Helper function for adding a file to the current archive.
-    fn append_to_archive(&mut self, full_path: &Path, path: &Path) -> Result<()> {
-        self.archive_names.insert(path.to_path_buf());
-        self.current_archive
-            .as_mut()
-            .expect("Current archive does not exist")
-            .append_path_with_name(full_path, path)?;
-        Ok(())
-    }
-
-    /// Append the current selected browser-pane file to the archive.
     pub fn add_file_to_archive(&mut self) -> Result<()> {
         let full_path = self.get_selected_browser();
-        let path = full_path.strip_prefix(self.browser_path.clone())?;
+        let archive_path = full_path
+            .strip_prefix(self.browser_path.clone())?
+            .to_path_buf()
+            .clean();
 
         if self.current_archive.is_none() {
-            self.create_archive()?;
+            self.current_archive = Some(create_archive(
+                self.archive_type,
+                self.compression_strength,
+            )?);
         }
 
-        if self.archive_names.contains(path) {
+        if self.archive_names.contains(&archive_path) {
             self.remove_from_archive()?;
             return Ok(());
         }
 
-        if path.is_dir() {
-            let dir = path.read_dir()?;
-            self.append_to_archive(&full_path, path)?;
-            for f in dir {
-                let f = f?;
-                let p = f.path();
-                self.archive_names.insert(p.to_path_buf());
-                self.current_archive
-                    .as_mut()
-                    .expect("Current archive does not exist")
-                    .append_path(p)?;
-            }
-        } else {
-            self.append_to_archive(&full_path, path)?;
+        if let Some(archive) = self.current_archive.as_mut() {
+            archive.add_file_to_archive(&full_path, &archive_path)?;
         }
+
+        self.archive_names.insert(archive_path);
 
         Ok(())
     }
 
     /// Save the currently built/loaded archive.
     pub fn save_archive(&mut self) -> Result<()> {
-        let builder = self
+        let mut archive = self
             .current_archive
             .take()
             .ok_or_else(|| anyhow!("Current archive does not exist"))?;
+        let msg = archive.save_msg(&self.save_filename);
 
-        let gz = builder.into_inner()?;
+        archive.save_archive(&self.save_filename)?;
 
-        let mut temp_file = gz.finish()?;
+        self.set_info_msg(&msg);
 
-        temp_file.seek(SeekFrom::Start(0))?;
+        Ok(())
+    }
 
-        let filename = PathBuf::from(format!("{}.tar.gz", self.save_filename));
-        let mut out = File::create(filename)?;
-        io::copy(&mut temp_file, &mut out)?;
+    pub fn extract_archive(&mut self) -> Result<()> {
+        match self.current_pane {
+            CurrentPane::Browser => {
+                let archive_path = self.get_selected_browser();
+                let destination = self.browser_path.join(strip_all_extensions(&archive_path));
+                self.current_archive
+                    .as_mut()
+                    .unwrap()
+                    .extract_archive_file(&archive_path, &destination)?
+            }
+            CurrentPane::Archive => {
+                if let Some(archive) = self.current_archive.as_mut() {
+                    let destination = self.browser_path.join(PathBuf::from("extract"));
+                    archive.extract_current(&destination)?;
+                }
+            }
+        }
 
-        self.set_info_msg(&format!("Saved to {}.tar.gz", self.save_filename));
+        Ok(())
+    }
 
+    pub fn remove_from_archive(&mut self) -> Result<()> {
+        let file_to_remove = match self.current_pane {
+            CurrentPane::Browser => self
+                .get_selected_browser()
+                .strip_prefix(self.browser_path.clone())?
+                .to_path_buf()
+                .clean(),
+            CurrentPane::Archive => self
+                .get_selected_archive()
+                .ok_or_else(|| anyhow!("Unable to get current archive file"))?,
+        };
+        if let Some(archive) = self.current_archive.as_mut() {
+            archive.remove_from_archive(&file_to_remove)?;
+        }
+        self.set_info_msg(&format!(
+            "file to remove: {}",
+            file_to_remove.to_string_lossy()
+        ));
+        self.archive_names.remove(&file_to_remove);
+        self.archive_idx = self
+            .archive_idx
+            .clamp(0, self.archive_names.len().saturating_sub(1));
+
+        Ok(())
+    }
+
+    pub fn load_archive(&mut self) -> Result<()> {
+        let archive_path = self.get_selected_browser();
+        let (archive, entry_names) =
+            load_archive_from_file(&archive_path, self.compression_strength)?;
+
+        self.current_archive = Some(archive);
+        self.archive_names = entry_names.into_iter().collect();
+        self.current_pane = CurrentPane::Archive;
+        self.archive_idx = 0;
+
+        self.set_info_msg("Loaded archive");
         Ok(())
     }
 
@@ -249,140 +359,14 @@ impl App {
             if step >= 0 {
                 self.archive_idx.wrapping_add(step as usize) % self.archive_names.len()
             } else {
-                ((self.archive_idx as isize + step)
-                    .rem_euclid(self.archive_names.len() as isize)) as usize
+                ((self.archive_idx as isize + step).rem_euclid(self.archive_names.len() as isize))
+                    as usize
             }
         } else {
             0
         };
 
         self.archive_idx = new_idx;
-    }
-
-    /// Extract an archive.
-    /// When an archive is selected in the browser window, extract that.
-    /// If the archive pane is active, extract the currently loaded archive.
-    pub fn extract_archive(&mut self) -> Result<()> {
-        match self.current_pane {
-            CurrentPane::Browser => {
-                // Build path to extract archive to
-                let path = self.get_selected_browser();
-                let file = File::open(&path)?;
-                let file_stem = strip_all_extensions(&path);
-                let unpack_path = self.browser_path.join(file_stem);
-
-                let decoder = MultiGzDecoder::new(&file);
-                let mut archive = Archive::new(decoder);
-                archive.unpack(unpack_path)?;
-            }
-            // Current archive has been created / loaded,
-            // so we can extract it.
-            CurrentPane::Archive => {
-                let b = self.current_archive.take().unwrap();
-                self.archive_names = HashSet::new();
-
-                let gz = b.into_inner()?;
-                let mut temp = gz.finish()?;
-                temp.seek(SeekFrom::Start(0))?;
-
-                let decoder = MultiGzDecoder::new(temp);
-                let mut archive = Archive::new(decoder);
-
-                // TODO - get destination from a save input box
-                let unpack_dst = self.browser_path.join("unpack/");
-                archive.unpack(unpack_dst)?;
-            }
-        }
-
-        self.set_info_msg("Extracted archive");
-
-        Ok(())
-    }
-
-    /// Removes selected file from the archive
-    pub fn remove_from_archive(&mut self) -> Result<()> {
-        // Get selected file
-        let file_to_remove = match self.current_pane {
-            CurrentPane::Browser => {
-                self.get_selected_browser()
-                    .strip_prefix(self.browser_path.clone())?
-                    .to_path_buf()
-                    .clean()
-            }
-            CurrentPane::Archive => {
-                self.get_selected_archive().ok_or_else(|| anyhow!("Unable to get current archive file"))?
-            }
-        };
-
-        // Get current archive file
-        let current_builder = self.current_archive.take()
-            .ok_or_else(|| anyhow!("Current archive does not exist, cannot remove file"))?;
-
-        // Get inner file from encoder
-        let gz = current_builder.into_inner()?;
-        let mut temp_file = gz.finish()?;
-        // Rewind file position after .finish()
-        temp_file.seek(SeekFrom::Start(0))?;
-
-        let decoder = MultiGzDecoder::new(temp_file);
-        let mut archive = Archive::new(decoder);
-
-        let new_file = tempfile()?;
-        let gz = GzEncoder::new(new_file, Compression::new(self.compression_strength));
-        let mut new_builder = Builder::new(gz);
-
-        for entry_res in archive.entries()? {
-            let entry = entry_res?;
-            let entry_path = entry.path()?;
-
-            // Skip entries that match the file to remove
-            if entry_path.as_ref().starts_with(&file_to_remove) {
-                continue;
-            }
-
-            let header = entry.header().clone();
-            new_builder.append(&header, entry)?;
-        }
-
-        self.archive_names.retain(|n| n != &file_to_remove);
-        self.current_archive = Some(new_builder);
-
-        Ok(())
-    }
-
-    /// Load an existing archive for editing
-    pub fn load_archive(&mut self) -> Result<()> {
-        // Get selected file
-        let archive_name = self.get_selected_browser()
-            .strip_prefix(self.browser_path.clone())?
-            .to_path_buf()
-            .clean();
-
-        // Get decoder and archive object
-        let f = File::open(&archive_name)?;
-        let decoder = flate2::read::GzDecoder::new(f);
-        let mut archive = Archive::new(decoder);
-
-        // Create a tempfile and encoder for the new archive
-        let new_file = tempfile()?;
-        let gz = GzEncoder::new(new_file, Compression::new(self.compression_strength));
-        let mut new_builder = Builder::new(gz);
-
-        // Copy entries from archive into new builder
-        self.archive_names = HashSet::new();
-        for entry_res in archive.entries()? {
-            let entry = entry_res?;
-            let entry_path = entry.path()?;
-            self.archive_names.insert(entry_path.into());
-            let header = entry.header().clone();
-            new_builder.append(&header, entry)?;
-        }
-
-        self.current_archive = Some(new_builder);
-
-        self.set_info_msg("Loaded archive");
-
-        Ok(())
     }
 
     /// Discard the current archive and reset.
@@ -410,11 +394,30 @@ impl App {
     }
 
     pub fn confirm_compression(&mut self) {
-        self.input_mode = InputMode::Normal;
-        self.set_info_msg(&format!("Compression strength set to {}", self.compression_strength));
+        self.input_mode = InputMode::ArchiveType;
+        self.set_info_msg(&format!(
+            "Compression strength set to {}",
+            self.compression_strength
+        ));
     }
 
     pub fn set_info_msg(&mut self, msg: &str) {
-        self.info_message = Some(InfoMsg { msg: msg.to_string(), timeout: Instant::now() + Duration::from_secs(3) })
+        self.info_message = Some(InfoMsg {
+            msg: msg.to_string(),
+            timeout: Instant::now() + Duration::from_secs(3),
+        })
+    }
+
+    pub fn select_next_archive_type(&mut self) {
+        self.archive_type = self.archive_type.next();
+    }
+
+    pub fn select_previous_archive_type(&mut self) {
+        self.archive_type = self.archive_type.previous();
+    }
+
+    pub fn confirm_archive_type(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.set_info_msg(&format!("Chose {}", self.archive_type));
     }
 }

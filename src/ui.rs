@@ -1,32 +1,31 @@
 use ratatui::{
-    Frame, layout::{Constraint, Layout, Rect},
+    Frame,
+    layout::{Alignment, Constraint, Layout, Rect},
     prelude::Margin,
     style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span},
-    widgets::{BarChart, Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation}
+    widgets::{
+        BarChart, Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar,
+        ScrollbarOrientation,
+    },
 };
 
-use std::{path::{Path, PathBuf}, time::Instant};
-use crate::app::{App, CurrentPane, InputMode};
+use crate::app::{App, ArchiveType, CurrentPane, InputMode};
+use std::{
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 pub fn ui(frame: &mut Frame, app: &mut App) {
     let title_layout = if app.show_footer {
-        Layout::vertical([
-            Constraint::Percentage(90),
-            Constraint::Percentage(10),
-        ])
-        .split(frame.area())
+        Layout::vertical([Constraint::Percentage(90), Constraint::Percentage(10)])
+            .split(frame.area())
     } else {
-        Layout::vertical([
-            Constraint::Percentage(100),
-        ]).split(frame.area())
+        Layout::vertical([Constraint::Percentage(100)]).split(frame.area())
     };
 
-    let main_layout = Layout::horizontal([
-        Constraint::Percentage(50),
-        Constraint::Percentage(50),
-    ])
-    .split(title_layout[0]);
+    let main_layout = Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(title_layout[0]);
 
     if app.show_footer {
         render_footer(frame, title_layout[1], &app.current_pane);
@@ -47,63 +46,61 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     match app.input_mode {
         InputMode::SaveWindow => render_save_popup(frame, app, frame.area()),
         InputMode::CompressionStrength => render_comp_str_popup(frame, app, frame.area()),
+        InputMode::ArchiveType => render_archive_type_popup(frame, app, frame.area()),
         InputMode::Normal => {} // No additional rendering needed if we are in Normal mode
     };
 }
 
 fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
-    let browser_style = Style::default().fg(tailwind::BLUE.c400).add_modifier(Modifier::BOLD);
-    let archive_style = Style::default().fg(tailwind::ORANGE.c400).add_modifier(Modifier::BOLD);
+    let browser_style = Style::default()
+        .fg(tailwind::BLUE.c400)
+        .add_modifier(Modifier::BOLD);
+    let archive_style = Style::default()
+        .fg(tailwind::ORANGE.c400)
+        .add_modifier(Modifier::BOLD);
 
     // I kind of hate this but it works for now
     let hints = match current_pane {
-        CurrentPane::Browser => {
-            Line::from(vec![
-                Span::styled("<q>", browser_style),
-                Span::raw(": Quit, "),
-                Span::styled("<j/k>", browser_style),
-                Span::raw(": U/D, "),
-                Span::styled("<tab>", browser_style),
-                Span::raw(": Toggle Pane, "),
-                Span::styled("<space>", browser_style),
-                Span::raw(": Change dir, "),
-                Span::styled("<.>", browser_style),
-                Span::raw(": Toggle hidden, "),
-                Span::styled("<a>", browser_style),
-                Span::raw(": add, "),
-                Span::styled("<l>", browser_style),
-                Span::raw(": load archive, "),
-                Span::styled("<e>", browser_style),
-                Span::raw(": extract archive, "),
-                Span::styled("<r>", browser_style),
-                Span::raw(": refresh files"),
-            ])
-        }
-        CurrentPane::Archive => {
-            Line::from(vec![
-                Span::styled("<q>", archive_style),
-                Span::raw(": Quit, "),
-                Span::styled("<j/k>", archive_style),
-                Span::raw(": U/D, "),
-                Span::styled("<tab>", archive_style),
-                Span::raw(": Toggle Pane, "),
-                Span::styled("<c>", archive_style),
-                Span::raw(": clear, "),
-                Span::styled("<s>", archive_style),
-                Span::raw(": save, "),
-                Span::styled("<a>", archive_style),
-                Span::raw(": remove, "),
-            ])
-        }
+        CurrentPane::Browser => Line::from(vec![
+            Span::styled("<q>", browser_style),
+            Span::raw(": Quit, "),
+            Span::styled("<j/k>", browser_style),
+            Span::raw(": U/D, "),
+            Span::styled("<tab>", browser_style),
+            Span::raw(": Toggle Pane, "),
+            Span::styled("<space>", browser_style),
+            Span::raw(": Change dir, "),
+            Span::styled("<.>", browser_style),
+            Span::raw(": Toggle hidden, "),
+            Span::styled("<a>", browser_style),
+            Span::raw(": add, "),
+            Span::styled("<l>", browser_style),
+            Span::raw(": load archive, "),
+            Span::styled("<e>", browser_style),
+            Span::raw(": extract archive, "),
+            Span::styled("<r>", browser_style),
+            Span::raw(": refresh files"),
+        ]),
+        CurrentPane::Archive => Line::from(vec![
+            Span::styled("<q>", archive_style),
+            Span::raw(": Quit, "),
+            Span::styled("<j/k>", archive_style),
+            Span::raw(": U/D, "),
+            Span::styled("<tab>", archive_style),
+            Span::raw(": Toggle Pane, "),
+            Span::styled("<c>", archive_style),
+            Span::raw(": clear, "),
+            Span::styled("<s>", archive_style),
+            Span::raw(": save, "),
+            Span::styled("<a>", archive_style),
+            Span::raw(": remove, "),
+        ]),
     };
 
-    let paragraph = Paragraph::new(hints)
-        .block(Block::default().borders(Borders::ALL).title("Keybinds"));
+    let paragraph =
+        Paragraph::new(hints).block(Block::default().borders(Borders::ALL).title("Keybinds"));
 
-    frame.render_widget(
-        paragraph,
-        area,
-    );
+    frame.render_widget(paragraph, area);
 }
 
 fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -127,15 +124,19 @@ fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
     let hint_text = if !app.show_footer {
         Line::from(vec![
             Span::styled("Press ", hint_style),
-            Span::styled("?", Style::default().fg(tailwind::BLUE.c400).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "?",
+                Style::default()
+                    .fg(tailwind::BLUE.c400)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled(" for help", hint_style),
         ])
     } else {
         Line::from(vec![])
     };
 
-    let browser_block = browser_block(current_pane)
-        .title_bottom(hint_text);
+    let browser_block = browser_block(current_pane).title_bottom(hint_text);
 
     app.browser_list_state.select(Some(browser_idx));
 
@@ -157,7 +158,10 @@ fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
 
         frame.render_stateful_widget(
             scrollbar,
-            area.inner(Margin { vertical: 1, horizontal: 0 }),
+            area.inner(Margin {
+                vertical: 1,
+                horizontal: 0,
+            }),
             &mut app.browser_scrollbar,
         );
     }
@@ -268,11 +272,17 @@ fn append_browser_debug_info(
 ) {
     items.push(ListItem::new(Line::from(Span::styled(
         "Debug Info:",
-        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+        Style::default()
+            .add_modifier(Modifier::BOLD)
+            .fg(Color::Cyan),
     ))));
 
     items.push(ListItem::new(Line::from(Span::styled(
-        format!("idx: {} / {}", browser_idx, browser_files_len.saturating_sub(1)),
+        format!(
+            "idx: {} / {}",
+            browser_idx,
+            browser_files_len.saturating_sub(1)
+        ),
         Style::default().fg(Color::White),
     ))));
 
@@ -328,13 +338,19 @@ fn archive_item_label(path: &Path) -> String {
 fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
     items.push(ListItem::new(Line::from(Span::styled(
         "Debug Info:",
-        Style::default().add_modifier(Modifier::BOLD).fg(Color::Cyan),
+        Style::default()
+            .add_modifier(Modifier::BOLD)
+            .fg(Color::Cyan),
     ))));
 
     let idx_info = if app.archive_names.is_empty() {
         "0 / 0".to_string()
     } else {
-        format!("idx: {} / {}", app.archive_idx, app.archive_names.len().saturating_sub(1))
+        format!(
+            "idx: {} / {}",
+            app.archive_idx,
+            app.archive_names.len().saturating_sub(1)
+        )
     };
 
     items.push(ListItem::new(Line::from(Span::styled(
@@ -416,26 +432,22 @@ fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
     // Prevent other panes from going through this new popup
     frame.render_widget(Clear, popup_area);
 
-    let title = Span::styled("Save archive as",
-        Style::default().dim());
+    let title = Span::styled("Save archive as", Style::default().dim());
 
     let popup = Paragraph::new(Line::from(vec![
-            Span::styled(app.save_filename.as_str(),
-                Style::default().bold()),
-            Span::styled(".tar.gz", Style::default().dim()),
-        ]))
-        .block(
-            Block::default()
-                .title(title)
-                .padding(Padding::new(1, 1, 1, 0))
-                .borders(Borders::ALL)
-                .title_bottom(Line::from(vec![
-                    Span::styled("<Enter>",
-                        Style::default().fg(tailwind::ORANGE.c400).bold()),
-                    Span::styled(" to save",
-                        Style::default().dim()),
-                ]))
-        );
+        Span::styled(app.save_filename.as_str(), Style::default().bold()),
+        Span::styled(format!("{}", app.archive_type), Style::default().dim()),
+    ]))
+    .block(
+        Block::default()
+            .title(title)
+            .padding(Padding::new(1, 1, 1, 0))
+            .borders(Borders::ALL)
+            .title_bottom(Line::from(vec![
+                Span::styled("<Enter>", Style::default().fg(tailwind::ORANGE.c400).bold()),
+                Span::styled(" to save", Style::default().dim()),
+            ])),
+    );
 
     frame.render_widget(popup, popup_area);
 }
@@ -446,8 +458,7 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
     // Prevent other panes from going through this new popup
     frame.render_widget(Clear, popup_area);
 
-    let title = Span::styled("Choose compression strength",
-        Style::default().dim());
+    let title = Span::styled("Choose compression strength", Style::default().dim());
 
     let chart = BarChart::default()
         .direction(ratatui::layout::Direction::Horizontal)
@@ -456,18 +467,12 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
                 .title(title)
                 .padding(Padding::symmetric(2, 1))
                 .title_bottom(Line::from(vec![
-                    Span::styled("<Enter>",
-                        Style::default().fg(tailwind::ORANGE.c400).bold()),
-                    Span::styled(" to confirm",
-                        Style::default().dim()),
-                ]))
+                    Span::styled("<Enter>", Style::default().fg(tailwind::ORANGE.c400).bold()),
+                    Span::styled(" to confirm", Style::default().dim()),
+                ])),
         )
-        // .bar_width(1)
-        // .bar_gap(1)
-        // .group_gap(3)
         .bar_style(Style::new().fg(tailwind::ORANGE.c400))
         .value_style(Style::new().fg(Color::White))
-        // .label_style(Style::new().white())
         .data(&[("Strength", app.compression_strength.into())])
         .max(9);
 
@@ -482,8 +487,59 @@ fn render_message_window(frame: &mut Frame, msg: &str, area: Rect) {
     let msg_y = area.height - (msg_height + 1);
 
     let rect = Rect::new(msg_x, msg_y, msg_width, msg_height);
-    let par = Paragraph::new(msg)
-        .block(Block::bordered());
+    let par = Paragraph::new(msg).block(Block::bordered());
 
     frame.render_widget(par, rect);
+}
+
+fn render_archive_type_popup(frame: &mut Frame, app: &App, area: Rect) {
+    let popup_area = centered_rect(40, 15, area);
+
+    frame.render_widget(Clear, popup_area);
+
+    let options = ArchiveType::ALL
+        .iter()
+        .enumerate()
+        .flat_map(|(index, archive_type)| {
+            let selected = *archive_type == app.archive_type;
+
+            let style = if selected {
+                Style::default()
+                    .add_modifier(Modifier::BOLD | Modifier::REVERSED)
+            } else {
+                Style::default()
+            };
+
+            let mut spans = vec![Span::styled(format!(" {} ", archive_type), style)];
+
+            if index + 1 < ArchiveType::ALL.len() {
+                spans.push(Span::raw("   "));
+            }
+
+            spans
+        })
+        .collect::<Vec<_>>();
+
+    let content = vec![
+        Line::from(""),
+        Line::from(options).alignment(Alignment::Center),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("<-/->", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(" select   "),
+        ])
+        .alignment(Alignment::Center),
+    ];
+
+    let popup = Paragraph::new(content).block(
+        Block::default()
+            .title(" Select archive type ")
+            .borders(Borders::ALL)
+            .title_bottom(Line::from(vec![
+                Span::styled("<Enter>", Style::default().bold()),
+                Span::styled(" to confirm", Style::default().dim()),
+            ])),
+    );
+
+    frame.render_widget(popup, popup_area);
 }
