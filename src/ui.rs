@@ -467,7 +467,9 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
                 .padding(Padding::symmetric(2, 1))
                 .title_bottom(Line::from(vec![
                     Span::styled("<Enter>", Style::default().fg(tailwind::ORANGE.c400).bold()),
-                    Span::styled(" to confirm", Style::default().dim()),
+                    Span::styled(" to confirm, ", Style::default().dim()),
+                    Span::styled("<+/->", Style::default().fg(tailwind::ORANGE.c400).bold()),
+                    Span::styled(" to change", Style::default().dim())
                 ])),
         )
         .filled_style(Style::new().fg(tailwind::ORANGE.c400))
@@ -522,7 +524,7 @@ fn render_archive_type_popup(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(options).alignment(Alignment::Center),
         Line::from(""),
         Line::from(vec![
-            Span::styled("<-/->", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled("<←/→>", Style::default().add_modifier(Modifier::BOLD)),
             Span::raw(" select   "),
         ])
         .alignment(Alignment::Center),
