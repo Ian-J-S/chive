@@ -72,6 +72,18 @@ impl ArchiveType {
 
         Self::ALL[previous]
     }
+
+    // For now, zip and tar_gz both support 0 compression
+    pub fn min_compression(&self) -> u32 {
+        0
+    }
+
+    // Some common compression methods have a max above 9,
+    // so I am leaving this function to make it easier to
+    // add those later if I want to.
+    pub fn max_compression(&self) -> u32 {
+        9
+    }
 }
 
 impl Display for ArchiveType {
@@ -145,7 +157,7 @@ impl App {
             archive_idx: 0,
             show_footer: false,
             should_quit: false,
-            input_mode: InputMode::CompressionStrength,
+            input_mode: InputMode::ArchiveType,
             save_filename: String::from("archive"),
             compression_strength: 6, // Default compression level
             info_message: None,
@@ -386,15 +398,18 @@ impl App {
     }
 
     pub fn increase_comp_strength(&mut self) {
-        self.compression_strength = (self.compression_strength + 1).min(9);
+        self.compression_strength = (self.compression_strength + 1)
+            .min(self.archive_type.max_compression());
     }
 
     pub fn decrease_comp_strength(&mut self) {
-        self.compression_strength = self.compression_strength.saturating_sub(1);
+        self.compression_strength = self.compression_strength
+            .saturating_sub(1)
+            .max(self.archive_type.min_compression())
     }
 
     pub fn confirm_compression(&mut self) {
-        self.input_mode = InputMode::ArchiveType;
+        self.input_mode = InputMode::Normal;
         self.set_info_msg(&format!(
             "Compression strength set to {}",
             self.compression_strength
@@ -417,7 +432,7 @@ impl App {
     }
 
     pub fn confirm_archive_type(&mut self) {
-        self.input_mode = InputMode::Normal;
+        self.input_mode = InputMode::CompressionStrength;
         self.set_info_msg(&format!("Chose {}", self.archive_type));
     }
 }

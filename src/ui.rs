@@ -459,7 +459,8 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
 
     let title = Span::styled("Choose compression strength", Style::default().dim());
 
-    let ratio = (app.compression_strength as f64) / (9.0);
+    let max_compression = app.archive_type.max_compression();
+    let ratio = (app.compression_strength as f64) / (max_compression as f64);
     let gauge = LineGauge::default()
         .block(
             Block::bordered()
@@ -473,7 +474,7 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
                 ])),
         )
         .filled_style(Style::new().fg(tailwind::ORANGE.c400))
-        .label(format!("{}/9", app.compression_strength))
+        .label(format!("{}/{}", app.compression_strength, max_compression))
         .ratio(ratio);
 
     frame.render_widget(gauge, popup_area);
