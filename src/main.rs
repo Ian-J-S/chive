@@ -113,6 +113,10 @@ fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
             app.clear_archive();
             app.refresh()?;
         }
+        KeyCode::Char('C') => {
+            app.clear_archive();
+            app.input_mode = InputMode::ArchiveType;
+        }
         KeyCode::Char('s') => {
             app.input_mode = InputMode::SaveWindow;
         }
