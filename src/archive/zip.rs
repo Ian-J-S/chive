@@ -15,10 +15,14 @@ pub struct Zip {
 
 impl Zip {
     pub fn new(compression_strength: u32) -> Result<Self> {
+        let compression_method = match compression_strength {
+            0 => CompressionMethod::Stored,
+            _ => CompressionMethod::Deflated,
+        };
         Ok(Zip {
             writer: Some(ZipWriter::new(NamedTempFile::new_in(".")?)),
             file_options: SimpleFileOptions::default()
-                .compression_method(CompressionMethod::Deflated)
+                .compression_method(compression_method)
                 .compression_level(Some(compression_strength.into())), // TODO
         })
     }
