@@ -89,6 +89,8 @@ fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
             Span::raw(": Toggle Pane, "),
             Span::styled("<c>", archive_style),
             Span::raw(": clear, "),
+            Span::styled("<C>", archive_style),
+            Span::raw(": reset, "),
             Span::styled("<s>", archive_style),
             Span::raw(": save, "),
             Span::styled("<a>", archive_style),
