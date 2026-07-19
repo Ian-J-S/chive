@@ -35,7 +35,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
 
     if let Some(info_msg) = &app.info_message {
         if info_msg.timeout > Instant::now() {
-            render_message_window(frame, &info_msg.msg, frame.area());
+            render_message_window(frame, app, &info_msg.msg, frame.area());
         } else {
             app.info_message = None;
         }
@@ -482,11 +482,15 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(gauge, popup_area);
 }
 
-fn render_message_window(frame: &mut Frame, msg: &str, area: Rect) {
+fn render_message_window(frame: &mut Frame, app: &App, msg: &str, area: Rect) {
     let msg_width = msg.len() as u16 + 2;
     let msg_height = 3;
     let msg_x = area.width - (msg_width + 1);
-    let msg_y = area.height - (msg_height + 1);
+    let msg_y = if app.show_footer {
+        area.height - (msg_height + 5)
+    } else {
+        area.height - (msg_height + 1)
+    };
 
     let rect = Rect::new(msg_x, msg_y, msg_width, msg_height);
     let par = Paragraph::new(msg).block(Block::bordered());
