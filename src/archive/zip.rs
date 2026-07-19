@@ -54,16 +54,14 @@ impl Zip {
         Ok((
             Zip {
                 writer: Some(writer),
-                file_options
+                file_options,
             },
             entry_names,
         ))
     }
-
 }
 
 impl AppArchive for Zip {
-
     fn add_file_to_archive(&mut self, full_path: &Path, archive_path: &Path) -> Result<()> {
         if let Some(writer) = self.writer.as_mut() {
             let file_name = archive_path.to_string_lossy();
@@ -103,7 +101,8 @@ impl AppArchive for Zip {
     }
 
     fn extract_current(&mut self, destination: &Path) -> Result<()> {
-        let writer = self.writer
+        let writer = self
+            .writer
             .take()
             .ok_or_else(|| anyhow!("Current archive does not exist"))?;
 

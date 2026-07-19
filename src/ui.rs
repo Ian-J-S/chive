@@ -1,6 +1,6 @@
 use ratatui::{
     Frame,
-    layout::{Constraint, Layout, Rect},
+    layout::{Alignment, Constraint, Layout, Rect},
     prelude::Margin,
     style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span},
@@ -10,7 +10,7 @@ use ratatui::{
     },
 };
 
-use crate::app::{App, CurrentPane, InputMode};
+use crate::app::{App, ArchiveType, CurrentPane, InputMode};
 use std::{
     path::{Path, PathBuf},
     time::Instant,
@@ -46,6 +46,7 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     match app.input_mode {
         InputMode::SaveWindow => render_save_popup(frame, app, frame.area()),
         InputMode::CompressionStrength => render_comp_str_popup(frame, app, frame.area()),
+        InputMode::ArchiveType => render_archive_type_popup(frame, app, frame.area()),
         InputMode::Normal => {} // No additional rendering needed if we are in Normal mode
     };
 }
@@ -435,7 +436,7 @@ fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
 
     let popup = Paragraph::new(Line::from(vec![
         Span::styled(app.save_filename.as_str(), Style::default().bold()),
-        Span::styled(".tar.gz", Style::default().dim()),
+        Span::styled(format!("{}", app.archive_type), Style::default().dim()),
     ]))
     .block(
         Block::default()
@@ -470,12 +471,8 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
                     Span::styled(" to confirm", Style::default().dim()),
                 ])),
         )
-        // .bar_width(1)
-        // .bar_gap(1)
-        // .group_gap(3)
         .bar_style(Style::new().fg(tailwind::ORANGE.c400))
         .value_style(Style::new().fg(Color::White))
-        // .label_style(Style::new().white())
         .data(&[("Strength", app.compression_strength.into())])
         .max(9);
 
@@ -493,4 +490,56 @@ fn render_message_window(frame: &mut Frame, msg: &str, area: Rect) {
     let par = Paragraph::new(msg).block(Block::bordered());
 
     frame.render_widget(par, rect);
+}
+
+fn render_archive_type_popup(frame: &mut Frame, app: &App, area: Rect) {
+    let popup_area = centered_rect(40, 15, area);
+
+    frame.render_widget(Clear, popup_area);
+
+    let options = ArchiveType::ALL
+        .iter()
+        .enumerate()
+        .flat_map(|(index, archive_type)| {
+            let selected = *archive_type == app.archive_type;
+
+            let style = if selected {
+                Style::default()
+                    .add_modifier(Modifier::BOLD | Modifier::REVERSED)
+            } else {
+                Style::default()
+            };
+
+            let mut spans = vec![Span::styled(format!(" {} ", archive_type), style)];
+
+            if index + 1 < ArchiveType::ALL.len() {
+                spans.push(Span::raw("   "));
+            }
+
+            spans
+        })
+        .collect::<Vec<_>>();
+
+    let content = vec![
+        Line::from(""),
+        Line::from(options).alignment(Alignment::Center),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("<-/->", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(" select   "),
+        ])
+        .alignment(Alignment::Center),
+    ];
+
+    let popup = Paragraph::new(content).block(
+        Block::default()
+            .title(" Select archive type ")
+            .borders(Borders::ALL)
+            .title_bottom(Line::from(vec![
+                Span::styled("<Enter>", Style::default().bold()),
+                Span::styled(" to confirm", Style::default().dim()),
+            ])),
+    );
+
+    frame.render_widget(popup, popup_area);
 }

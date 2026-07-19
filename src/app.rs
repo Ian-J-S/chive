@@ -1,8 +1,10 @@
 use anyhow::{Result, anyhow};
+use core::fmt;
 use path_clean::PathClean;
 use ratatui::widgets::{ListState, ScrollbarState};
 use std::collections::HashSet;
 use std::env;
+use std::fmt::Display;
 use std::fs::read_dir;
 use std::io;
 use std::path::{Path, PathBuf};
@@ -24,6 +26,7 @@ pub enum InputMode {
     Normal,
     SaveWindow,
     CompressionStrength,
+    ArchiveType,
 }
 
 pub struct InfoMsg {
@@ -31,13 +34,15 @@ pub struct InfoMsg {
     pub timeout: Instant,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ArchiveType {
     Zip,
     TarGz,
 }
 
 impl ArchiveType {
+    pub const ALL: [Self; 2] = [Self::Zip, Self::TarGz];
+
     pub fn from_path(path: &Path) -> Result<Self> {
         let name = path
             .file_name()
@@ -52,6 +57,31 @@ impl ArchiveType {
             Err(anyhow!("Unsupported archive type: {name}"))
         }
     }
+
+    pub fn index(self) -> usize {
+        Self::ALL.iter().position(|kind| *kind == self).unwrap_or(0)
+    }
+
+    pub fn next(self) -> Self {
+        let next = (self.index() + 1) % Self::ALL.len();
+        Self::ALL[next]
+    }
+
+    pub fn previous(self) -> Self {
+        let previous = self.index().checked_sub(1).unwrap_or(Self::ALL.len() - 1);
+
+        Self::ALL[previous]
+    }
+}
+
+impl Display for ArchiveType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
+        let st = match self {
+            Self::TarGz => ".tar.gz",
+            Self::Zip => ".zip",
+        };
+        write!(f, "{st}")
+    }
 }
 
 pub fn load_archive_from_file(
@@ -60,15 +90,13 @@ pub fn load_archive_from_file(
 ) -> Result<(Box<dyn AppArchive>, Vec<PathBuf>)> {
     match ArchiveType::from_path(path)? {
         ArchiveType::Zip => {
-            let (archive, names) =
-                Zip::load_from_file(path, compression_strength)?;
+            let (archive, names) = Zip::load_from_file(path, compression_strength)?;
 
             Ok((Box::new(archive), names))
         }
 
         ArchiveType::TarGz => {
-            let (archive, names) =
-                TarGz::load_from_file(path, compression_strength)?;
+            let (archive, names) = TarGz::load_from_file(path, compression_strength)?;
 
             Ok((Box::new(archive), names))
         }
@@ -221,13 +249,6 @@ impl App {
         }
     }
 
-    /// Create a new compressed archive
-    // pub fn create_archive(&mut self) -> Result<()> {
-    //     self.current_archive = Some(Box::new(A::new(self.compression_strength)?));
-
-    //     Ok(())
-    // }
-
     pub fn add_file_to_archive(&mut self) -> Result<()> {
         let full_path = self.get_selected_browser();
         let archive_path = full_path
@@ -236,7 +257,10 @@ impl App {
             .clean();
 
         if self.current_archive.is_none() {
-            self.current_archive = Some(create_archive(self.archive_type, self.compression_strength)?);
+            self.current_archive = Some(create_archive(
+                self.archive_type,
+                self.compression_strength,
+            )?);
         }
 
         if self.archive_names.contains(&archive_path) {
@@ -273,8 +297,11 @@ impl App {
             CurrentPane::Browser => {
                 let archive_path = self.get_selected_browser();
                 let destination = self.browser_path.join(strip_all_extensions(&archive_path));
-                self.current_archive.as_mut().unwrap().extract_archive_file(&archive_path, &destination)?
-            },
+                self.current_archive
+                    .as_mut()
+                    .unwrap()
+                    .extract_archive_file(&archive_path, &destination)?
+            }
             CurrentPane::Archive => {
                 if let Some(archive) = self.current_archive.as_mut() {
                     let destination = self.browser_path.join(PathBuf::from("extract"));
@@ -367,7 +394,7 @@ impl App {
     }
 
     pub fn confirm_compression(&mut self) {
-        self.input_mode = InputMode::Normal;
+        self.input_mode = InputMode::ArchiveType;
         self.set_info_msg(&format!(
             "Compression strength set to {}",
             self.compression_strength
@@ -379,5 +406,18 @@ impl App {
             msg: msg.to_string(),
             timeout: Instant::now() + Duration::from_secs(3),
         })
+    }
+
+    pub fn select_next_archive_type(&mut self) {
+        self.archive_type = self.archive_type.next();
+    }
+
+    pub fn select_previous_archive_type(&mut self) {
+        self.archive_type = self.archive_type.previous();
+    }
+
+    pub fn confirm_archive_type(&mut self) {
+        self.input_mode = InputMode::Normal;
+        self.set_info_msg(&format!("Chose {}", self.archive_type));
     }
 }

@@ -68,6 +68,7 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
                 },
                 InputMode::CompressionStrength => handle_comp_strength_key(app, key)?,
                 InputMode::SaveWindow => handle_save_window_keys(app, key)?,
+                InputMode::ArchiveType => handle_archive_type_key(app, key)?,
             }
         }
     }
@@ -151,5 +152,20 @@ fn handle_comp_strength_key(app: &mut App, key: KeyEvent) -> Result<()> {
         _ => {}
     };
 
+    Ok(())
+}
+
+fn handle_archive_type_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Left | KeyCode::Up | KeyCode::Char('h') | KeyCode::Char('k') => {
+            app.select_previous_archive_type();
+        }
+        KeyCode::Right | KeyCode::Down | KeyCode::Char('l') | KeyCode::Char('j') => {
+            app.select_next_archive_type();
+        }
+        KeyCode::Esc | KeyCode::Char('q') => app.input_mode = InputMode::Normal, // defaults to zip
+        KeyCode::Enter => app.confirm_archive_type(),
+        _ => {}
+    }
     Ok(())
 }
