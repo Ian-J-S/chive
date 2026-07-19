@@ -5,8 +5,7 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span},
     widgets::{
-        BarChart, Block, Borders, Clear, List, ListItem, Padding, Paragraph, Scrollbar,
-        ScrollbarOrientation,
+        Block, Borders, Clear, LineGauge, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation
     },
 };
 
@@ -460,24 +459,24 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
 
     let title = Span::styled("Choose compression strength", Style::default().dim());
 
-    let chart = BarChart::default()
-        .direction(ratatui::layout::Direction::Horizontal)
+    let ratio = (app.compression_strength as f64) / (9.0);
+    let gauge = LineGauge::default()
         .block(
             Block::bordered()
                 .title(title)
                 .padding(Padding::symmetric(2, 1))
                 .title_bottom(Line::from(vec![
                     Span::styled("<Enter>", Style::default().fg(tailwind::ORANGE.c400).bold()),
-                    Span::styled(" to confirm", Style::default().dim()),
+                    Span::styled(" to confirm, ", Style::default().dim()),
+                    Span::styled("<+/->", Style::default().fg(tailwind::ORANGE.c400).bold()),
+                    Span::styled(" to change", Style::default().dim())
                 ])),
         )
-        .bar_style(Style::new().fg(tailwind::ORANGE.c400))
-        .value_style(Style::new().fg(Color::White))
-        .data(&[("Strength", app.compression_strength.into())])
-        .max(9);
+        .filled_style(Style::new().fg(tailwind::ORANGE.c400))
+        .label(format!("{}/9", app.compression_strength))
+        .ratio(ratio);
 
-    frame.render_widget(chart, popup_area);
-    // frame.render_widget(popup, popup_area);
+    frame.render_widget(gauge, popup_area);
 }
 
 fn render_message_window(frame: &mut Frame, msg: &str, area: Rect) {
@@ -525,7 +524,7 @@ fn render_archive_type_popup(frame: &mut Frame, app: &App, area: Rect) {
         Line::from(options).alignment(Alignment::Center),
         Line::from(""),
         Line::from(vec![
-            Span::styled("<-/->", Style::default().add_modifier(Modifier::BOLD)),
+            Span::styled("<←/→>", Style::default().add_modifier(Modifier::BOLD)),
             Span::raw(" select   "),
         ])
         .alignment(Alignment::Center),
