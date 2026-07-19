@@ -13,8 +13,8 @@ pub struct Zip {
     file_options: SimpleFileOptions,
 }
 
-impl AppArchive for Zip {
-    fn new(compression_strength: u32) -> Result<Self> {
+impl Zip {
+    pub fn new(compression_strength: u32) -> Result<Self> {
         Ok(Zip {
             writer: Some(ZipWriter::new(NamedTempFile::new_in(".")?)),
             file_options: SimpleFileOptions::default()
@@ -22,6 +22,47 @@ impl AppArchive for Zip {
                 .compression_level(Some(compression_strength.into())), // TODO
         })
     }
+
+    pub fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
+        let source = File::open(path)?;
+        let mut archive = ZipArchive::new(source)?;
+
+        let mut entry_names = Vec::with_capacity(archive.len());
+
+        for index in 0..archive.len() {
+            let entry = archive.by_index(index)?;
+
+            let entry_path = entry
+                .enclosed_name()
+                .ok_or_else(|| anyhow!("Unsafe ZIP entry path: {}", entry.name()))?;
+
+            entry_names.push(entry_path);
+        }
+
+        let mut temp_file = NamedTempFile::new_in(".")?;
+        let mut source = File::open(path)?;
+
+        std::io::copy(&mut source, &mut temp_file)?;
+        temp_file.rewind()?;
+
+        let writer = ZipWriter::new_append(temp_file)?;
+
+        let file_options = SimpleFileOptions::default()
+            .compression_method(CompressionMethod::Deflated)
+            .compression_level(Some(compression_strength.into()));
+
+        Ok((
+            Zip {
+                writer: Some(writer),
+                file_options
+            },
+            entry_names,
+        ))
+    }
+
+}
+
+impl AppArchive for Zip {
 
     fn add_file_to_archive(&mut self, full_path: &Path, archive_path: &Path) -> Result<()> {
         if let Some(writer) = self.writer.as_mut() {
@@ -36,9 +77,10 @@ impl AppArchive for Zip {
         Ok(())
     }
 
-    fn save_archive(self, save_filename: &str) -> Result<()> {
+    fn save_archive(&mut self, save_filename: &str) -> Result<()> {
         let temp_file = self
             .writer
+            .take()
             .ok_or_else(|| anyhow!("Current archive does not exist"))?
             .finish()?;
 
@@ -51,7 +93,7 @@ impl AppArchive for Zip {
         format!("Saved {name}.zip!")
     }
 
-    fn extract_archive_file(archive_path: &Path, destination: &Path) -> Result<()> {
+    fn extract_archive_file(&self, archive_path: &Path, destination: &Path) -> Result<()> {
         let file = File::open(archive_path)?;
         let mut archive = ZipArchive::new(file)?;
 
@@ -107,42 +149,5 @@ impl AppArchive for Zip {
         self.writer = Some(new_writer);
 
         Ok(())
-    }
-
-    fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
-        let source = File::open(path)?;
-        let mut archive = ZipArchive::new(source)?;
-
-        let mut entry_names = Vec::with_capacity(archive.len());
-
-        for index in 0..archive.len() {
-            let entry = archive.by_index(index)?;
-
-            let entry_path = entry
-                .enclosed_name()
-                .ok_or_else(|| anyhow!("Unsafe ZIP entry path: {}", entry.name()))?;
-
-            entry_names.push(entry_path);
-        }
-
-        let mut temp_file = NamedTempFile::new_in(".")?;
-        let mut source = File::open(path)?;
-
-        std::io::copy(&mut source, &mut temp_file)?;
-        temp_file.rewind()?;
-
-        let writer = ZipWriter::new_append(temp_file)?;
-
-        let file_options = SimpleFileOptions::default()
-            .compression_method(CompressionMethod::Deflated)
-            .compression_level(Some(compression_strength.into()));
-
-        Ok((
-            Zip {
-                writer: Some(writer),
-                file_options
-            },
-            entry_names,
-        ))
     }
 }

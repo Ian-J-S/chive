@@ -5,7 +5,7 @@ use std::collections::HashSet;
 use std::env;
 use std::fs::read_dir;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::archive::zip::Zip;
@@ -31,7 +31,51 @@ pub struct InfoMsg {
     pub timeout: Instant,
 }
 
-pub struct App<A: AppArchive = Zip> {
+#[derive(PartialEq, Clone, Copy)]
+pub enum ArchiveType {
+    Zip,
+    TarGz,
+}
+
+impl ArchiveType {
+    pub fn from_path(path: &Path) -> Result<Self> {
+        let name = path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .ok_or_else(|| anyhow!("Archive path has no valid file name"))?;
+
+        if name.ends_with(".tar.gz") || name.ends_with(".tgz") {
+            Ok(Self::TarGz)
+        } else if name.ends_with(".zip") {
+            Ok(Self::Zip)
+        } else {
+            Err(anyhow!("Unsupported archive type: {name}"))
+        }
+    }
+}
+
+pub fn load_archive_from_file(
+    path: &Path,
+    compression_strength: u32,
+) -> Result<(Box<dyn AppArchive>, Vec<PathBuf>)> {
+    match ArchiveType::from_path(path)? {
+        ArchiveType::Zip => {
+            let (archive, names) =
+                Zip::load_from_file(path, compression_strength)?;
+
+            Ok((Box::new(archive), names))
+        }
+
+        ArchiveType::TarGz => {
+            let (archive, names) =
+                TarGz::load_from_file(path, compression_strength)?;
+
+            Ok((Box::new(archive), names))
+        }
+    }
+}
+
+pub struct App {
     pub browser_path: PathBuf,
     pub browser_files: Vec<PathBuf>,
     pub browser_idx: usize,
@@ -40,7 +84,7 @@ pub struct App<A: AppArchive = Zip> {
     pub current_pane: CurrentPane,
     pub show_hidden: bool,
     pub archive_names: HashSet<PathBuf>, // Stores unique file names, not full paths
-    pub current_archive: Option<A>,
+    pub current_archive: Option<Box<dyn AppArchive>>,
     pub archive_idx: usize,
     pub show_footer: bool,
     pub should_quit: bool,
@@ -48,9 +92,17 @@ pub struct App<A: AppArchive = Zip> {
     pub save_filename: String,
     pub compression_strength: u32,
     pub info_message: Option<InfoMsg>,
+    pub archive_type: ArchiveType,
 }
 
-impl<A: AppArchive> App<A> {
+pub fn create_archive(kind: ArchiveType, compression_strength: u32) -> Result<Box<dyn AppArchive>> {
+    match kind {
+        ArchiveType::Zip => Ok(Box::new(Zip::new(compression_strength)?)),
+        ArchiveType::TarGz => Ok(Box::new(TarGz::new(compression_strength)?)),
+    }
+}
+
+impl App {
     pub fn new() -> Self {
         App {
             browser_path: std::env::current_dir().unwrap_or(PathBuf::from(".")),
@@ -67,8 +119,9 @@ impl<A: AppArchive> App<A> {
             should_quit: false,
             input_mode: InputMode::CompressionStrength,
             save_filename: String::from("archive"),
-            compression_strength: 6, // Default gzip compression level
+            compression_strength: 6, // Default compression level
             info_message: None,
+            archive_type: ArchiveType::Zip, // Default to Zip
         }
     }
 
@@ -169,11 +222,11 @@ impl<A: AppArchive> App<A> {
     }
 
     /// Create a new compressed archive
-    pub fn create_archive(&mut self) -> Result<()> {
-        self.current_archive = Some(A::new(self.compression_strength)?);
+    // pub fn create_archive(&mut self) -> Result<()> {
+    //     self.current_archive = Some(Box::new(A::new(self.compression_strength)?));
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     pub fn add_file_to_archive(&mut self) -> Result<()> {
         let full_path = self.get_selected_browser();
@@ -183,7 +236,7 @@ impl<A: AppArchive> App<A> {
             .clean();
 
         if self.current_archive.is_none() {
-            self.create_archive()?;
+            self.current_archive = Some(create_archive(self.archive_type, self.compression_strength)?);
         }
 
         if self.archive_names.contains(&archive_path) {
@@ -202,7 +255,7 @@ impl<A: AppArchive> App<A> {
 
     /// Save the currently built/loaded archive.
     pub fn save_archive(&mut self) -> Result<()> {
-        let archive = self
+        let mut archive = self
             .current_archive
             .take()
             .ok_or_else(|| anyhow!("Current archive does not exist"))?;
@@ -220,7 +273,7 @@ impl<A: AppArchive> App<A> {
             CurrentPane::Browser => {
                 let archive_path = self.get_selected_browser();
                 let destination = self.browser_path.join(strip_all_extensions(&archive_path));
-                A::extract_archive_file(&archive_path, &destination)?
+                self.current_archive.as_mut().unwrap().extract_archive_file(&archive_path, &destination)?
             },
             CurrentPane::Archive => {
                 if let Some(archive) = self.current_archive.as_mut() {
@@ -261,7 +314,8 @@ impl<A: AppArchive> App<A> {
 
     pub fn load_archive(&mut self) -> Result<()> {
         let archive_path = self.get_selected_browser();
-        let (archive, entry_names) = A::load_from_file(&archive_path, self.compression_strength)?;
+        let (archive, entry_names) =
+            load_archive_from_file(&archive_path, self.compression_strength)?;
 
         self.current_archive = Some(archive);
         self.archive_names = entry_names.into_iter().collect();

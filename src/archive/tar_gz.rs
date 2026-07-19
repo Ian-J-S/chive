@@ -13,8 +13,8 @@ pub struct TarGz {
     pub builder: Option<Builder<GzEncoder<File>>>,
 }
 
-impl AppArchive for TarGz {
-    fn new(compression_strength: u32) -> Result<Self> {
+impl TarGz {
+    pub fn new(compression_strength: u32) -> Result<Self> {
         let file = tempfile()?;
         let gz = GzEncoder::new(file, Compression::new(compression_strength));
         let builder = Builder::new(gz);
@@ -23,6 +23,34 @@ impl AppArchive for TarGz {
         })
     }
 
+    pub fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
+        let file = File::open(path)?;
+        let decoder = flate2::read::GzDecoder::new(file);
+        let mut archive = Archive::new(decoder);
+
+        let new_file = tempfile()?;
+        let gz = GzEncoder::new(new_file, Compression::new(compression_strength));
+        let mut new_builder = Builder::new(gz);
+
+        let mut entry_names = Vec::new();
+        for entry_res in archive.entries()? {
+            let entry = entry_res?;
+            let entry_path = entry.path()?.to_path_buf();
+            entry_names.push(entry_path.clone());
+            let header = entry.header().clone();
+            new_builder.append(&header, entry)?;
+        }
+
+        Ok((
+            TarGz {
+                builder: Some(new_builder),
+            },
+            entry_names,
+        ))
+    }
+}
+
+impl AppArchive for TarGz {
     fn add_file_to_archive(&mut self, full_path: &Path, archive_path: &Path) -> Result<()> {
         self.builder
             .as_mut()
@@ -31,9 +59,10 @@ impl AppArchive for TarGz {
         Ok(())
     }
 
-    fn save_archive(self, save_filename: &str) -> Result<()> {
+    fn save_archive(&mut self, save_filename: &str) -> Result<()> {
         let builder = self
             .builder
+            .take()
             .ok_or_else(|| anyhow!("archive builder is not initialized"))?;
         let gz = builder.into_inner()?;
 
@@ -52,7 +81,7 @@ impl AppArchive for TarGz {
         format!("Saved to {}.tar.gz", name)
     }
 
-    fn extract_archive_file(archive_path: &Path, destination: &Path) -> Result<()> {
+    fn extract_archive_file(&self, archive_path: &Path, destination: &Path) -> Result<()> {
         let file = File::open(archive_path)?;
         let decoder = MultiGzDecoder::new(file);
         let mut archive = Archive::new(decoder);
@@ -110,31 +139,5 @@ impl AppArchive for TarGz {
 
         self.builder = Some(new_builder);
         Ok(())
-    }
-
-    fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
-        let file = File::open(path)?;
-        let decoder = flate2::read::GzDecoder::new(file);
-        let mut archive = Archive::new(decoder);
-
-        let new_file = tempfile()?;
-        let gz = GzEncoder::new(new_file, Compression::new(compression_strength));
-        let mut new_builder = Builder::new(gz);
-
-        let mut entry_names = Vec::new();
-        for entry_res in archive.entries()? {
-            let entry = entry_res?;
-            let entry_path = entry.path()?.to_path_buf();
-            entry_names.push(entry_path.clone());
-            let header = entry.header().clone();
-            new_builder.append(&header, entry)?;
-        }
-
-        Ok((
-            TarGz {
-                builder: Some(new_builder),
-            },
-            entry_names,
-        ))
     }
 }
