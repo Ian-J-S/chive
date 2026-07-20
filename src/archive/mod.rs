@@ -1,4 +1,4 @@
-pub mod seven7;
+pub mod seven_z;
 pub mod tar_gz;
 pub mod traits;
 pub mod zip;

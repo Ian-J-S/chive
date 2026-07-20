@@ -10,7 +10,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use crate::archive::seven7::SevenZ;
+use crate::archive::seven_z::SevenZ;
 use crate::archive::zip::Zip;
 use crate::archive::{tar_gz::TarGz, traits::AppArchive};
 
