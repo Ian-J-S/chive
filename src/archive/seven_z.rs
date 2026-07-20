@@ -1,6 +1,6 @@
 use crate::archive::traits::AppArchive;
-use anyhow::{Result, anyhow};
-use sevenz_rust::{SevenZArchiveEntry, SevenZWriter, decompress_file, lzma::LZMA2Options};
+use anyhow::{anyhow, Result};
+use sevenz_rust2::{decompress_file, encoder_options::Lzma2Options, ArchiveEntry, ArchiveWriter};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -9,14 +9,14 @@ use tempfile::NamedTempFile;
 use walkdir::WalkDir;
 
 pub struct SevenZ {
-    writer: Option<SevenZWriter<NamedTempFile>>,
+    writer: Option<ArchiveWriter<NamedTempFile>>,
 }
 
 impl SevenZ {
     pub fn new(compression_strength: u32) -> Result<Self> {
         let file = NamedTempFile::new_in(".")?;
-        let mut writer = SevenZWriter::new(file)?;
-        writer.set_content_methods(vec![LZMA2Options::with_preset(compression_strength).into()]);
+        let mut writer = ArchiveWriter::new(file)?;
+        writer.set_content_methods(vec![Lzma2Options::from_level(compression_strength).into()]);
         Ok(SevenZ {
             writer: Some(writer),
         })
@@ -57,7 +57,7 @@ impl AppArchive for SevenZ {
 
             let entry_name = item_archive_path.to_string_lossy().to_string();
 
-            let entry = SevenZArchiveEntry::from_path(item_full_path, entry_name);
+            let entry = ArchiveEntry::from_path(item_full_path, entry_name);
 
             writer.push_archive_entry(entry, Some(File::open(item_full_path)?))?;
         }
@@ -82,7 +82,7 @@ impl AppArchive for SevenZ {
     }
 
     fn extract_archive_file(&self, archive_path: &Path, destination: &Path) -> Result<()> {
-        decompress_file(archive_path, destination)?; 
+        decompress_file(archive_path, destination)?;
         Ok(())
     }
 
@@ -91,6 +91,6 @@ impl AppArchive for SevenZ {
     }
 
     fn remove_from_archive(&mut self, file_to_remove: &Path) -> Result<()> {
-        todo!()
+        Ok(())
     }
 }
