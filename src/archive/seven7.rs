@@ -1,6 +1,6 @@
 use crate::archive::traits::AppArchive;
 use anyhow::{Result, anyhow};
-use sevenz_rust::{SevenZArchiveEntry, SevenZWriter, lzma::LZMA2Options};
+use sevenz_rust::{SevenZArchiveEntry, SevenZWriter, decompress_file, lzma::LZMA2Options};
 use std::{
     fs::File,
     path::{Path, PathBuf},
@@ -78,10 +78,11 @@ impl AppArchive for SevenZ {
     }
 
     fn save_msg(&self, name: &str) -> String {
-        String::default()
+        format!("Saved {name}.7z!")
     }
 
     fn extract_archive_file(&self, archive_path: &Path, destination: &Path) -> Result<()> {
+        decompress_file(archive_path, destination)?; 
         Ok(())
     }
 
