@@ -6,6 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tempfile::NamedTempFile;
+use walkdir::WalkDir;
 
 pub struct SevenZ {
     writer: Option<SevenZWriter<NamedTempFile>>,
@@ -27,20 +28,39 @@ impl SevenZ {
 }
 
 impl AppArchive for SevenZ {
-
     fn add_file_to_archive(&mut self, full_path: &Path, archive_path: &Path) -> Result<()> {
         let writer = self
             .writer
             .as_mut()
             .ok_or_else(|| anyhow!("Current archive does not exist"))?;
 
-        let entry_name = archive_path.to_string_lossy().to_string();
+        for item in WalkDir::new(full_path) {
+            let item = item?;
+            let item_full_path = item.path();
 
-        let entry = SevenZArchiveEntry::from_path(full_path, entry_name);
+            // Skip directories. Their paths will be implied by contained files
+            if !item.file_type().is_file() {
+                continue;
+            }
 
-        let source = File::open(full_path)?;
+            let relative_path = if full_path.is_dir() {
+                item_full_path.strip_prefix(full_path)?
+            } else {
+                Path::new("")
+            };
 
-        writer.push_archive_entry(entry, Some(source))?;
+            let item_archive_path = if full_path.is_dir() {
+                archive_path.join(relative_path)
+            } else {
+                archive_path.to_path_buf()
+            };
+
+            let entry_name = item_archive_path.to_string_lossy().to_string();
+
+            let entry = SevenZArchiveEntry::from_path(item_full_path, entry_name);
+
+            writer.push_archive_entry(entry, Some(File::open(item_full_path)?))?;
+        }
 
         Ok(())
     }
