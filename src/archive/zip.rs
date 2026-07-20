@@ -2,10 +2,11 @@ use crate::archive::traits::AppArchive;
 use anyhow::{Result, anyhow};
 use std::{
     fs::File,
-    io::Seek,
+    io::{self, Seek},
     path::{Path, PathBuf},
 };
 use tempfile::NamedTempFile;
+use walkdir::WalkDir;
 use zip::{CompressionMethod, ZipArchive, ZipWriter, write::SimpleFileOptions};
 
 pub struct Zip {
@@ -19,11 +20,11 @@ impl Zip {
             0 => SimpleFileOptions::default().compression_method(CompressionMethod::Stored),
             _ => SimpleFileOptions::default()
                 .compression_method(CompressionMethod::Deflated)
-                .compression_level(Some(compression_strength.into()))
+                .compression_level(Some(compression_strength.into())),
         };
         Ok(Zip {
             writer: Some(ZipWriter::new(NamedTempFile::new_in(".")?)),
-            file_options
+            file_options,
         })
     }
 
@@ -67,13 +68,34 @@ impl Zip {
 
 impl AppArchive for Zip {
     fn add_file_to_archive(&mut self, full_path: &Path, archive_path: &Path) -> Result<()> {
-        if let Some(writer) = self.writer.as_mut() {
-            let file_name = archive_path.to_string_lossy();
-            writer.start_file(file_name, self.file_options)?;
+        let writer = self
+            .writer
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("ZIP writer is unavailable"))?;
+
+        if full_path.is_dir() {
+            for entry in WalkDir::new(full_path) {
+                let entry = entry?;
+                let source_path = entry.path();
+
+                let relative_path = source_path.strip_prefix(full_path)?;
+
+                let zip_path = archive_path.join(relative_path);
+
+                if source_path.is_dir() {
+                    writer.add_directory(zip_path.to_string_lossy(), self.file_options)?;
+                } else {
+                    writer.start_file(zip_path.to_string_lossy(), self.file_options)?;
+
+                    let mut source = File::open(source_path)?;
+                    io::copy(&mut source, writer)?;
+                }
+            }
+        } else {
+            writer.start_file(archive_path.to_string_lossy(), self.file_options)?;
 
             let mut source = File::open(full_path)?;
-
-            std::io::copy(&mut source, writer)?;
+            io::copy(&mut source, writer)?;
         }
 
         Ok(())

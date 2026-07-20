@@ -398,12 +398,13 @@ impl App {
     }
 
     pub fn increase_comp_strength(&mut self) {
-        self.compression_strength = (self.compression_strength + 1)
-            .min(self.archive_type.max_compression());
+        self.compression_strength =
+            (self.compression_strength + 1).min(self.archive_type.max_compression());
     }
 
     pub fn decrease_comp_strength(&mut self) {
-        self.compression_strength = self.compression_strength
+        self.compression_strength = self
+            .compression_strength
             .saturating_sub(1)
             .max(self.archive_type.min_compression())
     }

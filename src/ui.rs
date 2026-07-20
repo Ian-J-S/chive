@@ -5,7 +5,8 @@ use ratatui::{
     style::{Color, Modifier, Style, Stylize, palette::tailwind},
     text::{Line, Span},
     widgets::{
-        Block, Borders, Clear, LineGauge, List, ListItem, Padding, Paragraph, Scrollbar, ScrollbarOrientation
+        Block, Borders, Clear, LineGauge, List, ListItem, Padding, Paragraph, Scrollbar,
+        ScrollbarOrientation,
     },
 };
 
@@ -472,7 +473,7 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
                     Span::styled("<Enter>", Style::default().fg(tailwind::ORANGE.c400).bold()),
                     Span::styled(" to confirm, ", Style::default().dim()),
                     Span::styled("<+/->", Style::default().fg(tailwind::ORANGE.c400).bold()),
-                    Span::styled(" to change", Style::default().dim())
+                    Span::styled(" to change", Style::default().dim()),
                 ])),
         )
         .filled_style(Style::new().fg(tailwind::ORANGE.c400))
@@ -510,8 +511,7 @@ fn render_archive_type_popup(frame: &mut Frame, app: &App, area: Rect) {
             let selected = *archive_type == app.archive_type;
 
             let style = if selected {
-                Style::default()
-                    .add_modifier(Modifier::BOLD | Modifier::REVERSED)
+                Style::default().add_modifier(Modifier::BOLD | Modifier::REVERSED)
             } else {
                 Style::default()
             };
