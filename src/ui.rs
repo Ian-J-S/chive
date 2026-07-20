@@ -2,7 +2,7 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Layout, Rect},
     prelude::Margin,
-    style::{Color, Modifier, Style, Stylize, palette::tailwind},
+    style::{Color, Modifier, Style, palette::tailwind},
     text::{Line, Span},
     widgets::{
         Block, Borders, Clear, LineGauge, List, ListItem, Padding, Paragraph, Scrollbar,
