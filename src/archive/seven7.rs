@@ -12,7 +12,7 @@ pub struct SevenZ {
 }
 
 impl SevenZ {
-    fn new(compression_strength: u32) -> Result<Self> {
+    pub fn new(compression_strength: u32) -> Result<Self> {
         let file = NamedTempFile::new_in(".")?;
         let mut writer = SevenZWriter::new(file)?;
         writer.set_content_methods(vec![LZMA2Options::with_preset(compression_strength).into()]);
@@ -21,7 +21,7 @@ impl SevenZ {
         })
     }
 
-    fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
+    pub fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
         Ok((Self { writer: None }, vec![]))
     }
 }
