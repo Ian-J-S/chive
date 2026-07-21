@@ -52,7 +52,7 @@ where
     B: Backend,
     B::Error: Send + Sync + 'static,
 {
-    app.browser_files = app.get_browser_files().unwrap(); // TODO - should replace with some app.init function
+    app.browser_files = app.get_browser_files()?; // TODO - should replace with some app.init function
     loop {
         terminal.draw(|f| ui(f, app))?;
 
