@@ -12,7 +12,11 @@ struct TarXz {
 
 impl TarXz {
     pub fn new(compression_strength: u32) -> Result<Self> {
-        todo!()
+        let file = NamedTempFile::new_in(".")?;
+        let xz = XzEncoder::new(file, compression_strength);
+        let builder = Some(Builder::new(xz));
+
+        Ok(TarXz { builder })
     }
 
     pub fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
