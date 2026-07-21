@@ -1,9 +1,8 @@
 use crate::archive::traits::AppArchive;
 use anyhow::{anyhow, Result};
 use sevenz_rust2::{
-    decompress_file,
-    encoder_options::Lzma2Options,
-    ArchiveEntry, ArchiveReader, ArchiveWriter, EncoderConfiguration, Password,
+    decompress, decompress_file, encoder_options::Lzma2Options, ArchiveEntry, ArchiveReader,
+    ArchiveWriter, EncoderConfiguration, Password,
 };
 use std::{
     fs::File,
@@ -22,12 +21,9 @@ impl SevenZ {
         let file = NamedTempFile::new_in(".")?;
         let mut writer = ArchiveWriter::new(file)?;
 
-        let config: EncoderConfiguration =
-            Lzma2Options::from_level(compression_strength).into();
+        let config: EncoderConfiguration = Lzma2Options::from_level(compression_strength).into();
 
-        writer.set_content_methods(vec![
-            config.clone(),
-        ]);
+        writer.set_content_methods(vec![config.clone()]);
 
         Ok(Self {
             writer: Some(writer),
@@ -100,7 +96,15 @@ impl AppArchive for SevenZ {
     }
 
     fn extract_current(&mut self, destination: &Path) -> Result<()> {
-        todo!()
+        let file = self
+            .writer
+            .take()
+            .ok_or_else(|| anyhow!("Current archive does not exist"))?
+            .finish()?;
+
+        decompress(file, destination)?;
+
+        Ok(())
     }
 
     fn remove_from_archive(&mut self, file_to_remove: &Path) -> Result<()> {
@@ -114,8 +118,9 @@ impl AppArchive for SevenZ {
         let mut reader = ArchiveReader::new(inner_file, password)?;
 
         let mut new_writer = ArchiveWriter::new(NamedTempFile::new_in(".")?)?;
-        new_writer.set_content_methods(vec![ // Keep same level of compression
-            self.config.clone()
+        new_writer.set_content_methods(vec![
+            // Keep same level of compression
+            self.config.clone(),
         ]);
 
         let file_to_remove = file_to_remove.to_string_lossy().replace('\\', "/");
