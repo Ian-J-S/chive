@@ -351,10 +351,7 @@ impl App {
         if let Some(archive) = self.current_archive.as_mut() {
             archive.remove_from_archive(&file_to_remove)?;
         }
-        self.set_info_msg(&format!(
-            "file to remove: {}",
-            file_to_remove.to_string_lossy()
-        ));
+
         self.archive_names.remove(&file_to_remove);
         self.archive_idx = self
             .archive_idx
