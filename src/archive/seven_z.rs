@@ -32,7 +32,33 @@ impl SevenZ {
     }
 
     pub fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
-        todo!()
+        let mut reader = ArchiveReader::open(path, Password::empty())?;
+
+        let dst_file = NamedTempFile::new_in(".")?;
+        let mut writer = ArchiveWriter::new(dst_file)?;
+        let config: EncoderConfiguration = Lzma2Options::from_level(compression_strength).into();
+        writer.set_content_methods(vec![config.clone()]);
+
+        let mut archive_names = Vec::with_capacity(reader.archive().files.len());
+
+        reader.for_each_entries(|entry, entry_reader| {
+            if entry.is_directory() {
+                writer.push_archive_entry::<File>(entry.clone(), None)?;
+            } else {
+                writer.push_archive_entry(entry.clone(), Some(entry_reader))?;
+                archive_names.push(PathBuf::from(entry.name()));
+            }
+
+            Ok(true)
+        })?;
+
+        Ok((
+            SevenZ {
+                writer: Some(writer),
+                config,
+            },
+            archive_names,
+        ))
     }
 }
 
