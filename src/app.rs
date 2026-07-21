@@ -321,10 +321,14 @@ impl App {
             CurrentPane::Browser => {
                 let archive_path = self.get_selected_browser();
                 let destination = self.browser_path.join(strip_all_extensions(&archive_path));
+                
+                let (new_arch, paths) = load_archive_from_file(&archive_path, self.compression_strength)?;
+                self.current_archive = Some(new_arch);
+                self.archive_names = paths.into_iter().collect();
                 self.current_archive
                     .as_mut()
-                    .unwrap()
-                    .extract_archive_file(&archive_path, &destination)?
+                    .ok_or_else(|| anyhow!("Error loading archive"))?
+                    .extract_archive_file(&archive_path, &destination)?;
             }
             CurrentPane::Archive => {
                 if let Some(archive) = self.current_archive.as_mut() {
