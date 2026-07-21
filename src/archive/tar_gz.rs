@@ -10,7 +10,8 @@ use tar::{Archive, Builder};
 use tempfile::tempfile;
 
 pub struct TarGz {
-    pub builder: Option<Builder<GzEncoder<File>>>,
+    builder: Option<Builder<GzEncoder<File>>>,
+    compression_strength: u32,
 }
 
 impl TarGz {
@@ -20,6 +21,7 @@ impl TarGz {
         let builder = Builder::new(gz);
         Ok(TarGz {
             builder: Some(builder),
+            compression_strength,
         })
     }
 
@@ -44,6 +46,7 @@ impl TarGz {
         Ok((
             TarGz {
                 builder: Some(new_builder),
+                compression_strength,
             },
             entry_names,
         ))
@@ -121,7 +124,7 @@ impl AppArchive for TarGz {
         let mut archive = Archive::new(decoder);
 
         let new_file = tempfile()?;
-        let gz = GzEncoder::new(new_file, Compression::new(6));
+        let gz = GzEncoder::new(new_file, Compression::new(self.compression_strength));
         let mut new_builder = Builder::new(gz);
 
         for entry_res in archive.entries()? {
