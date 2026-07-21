@@ -27,7 +27,30 @@ impl TarXz {
     }
 
     pub fn load_from_file(path: &Path, compression_strength: u32) -> Result<(Self, Vec<PathBuf>)> {
-        todo!()
+        let file = File::open(path)?;
+        let decoder = XzDecoder::new(file);
+        let mut archive = Archive::new(decoder);
+
+        let new_file = NamedTempFile::new_in(".")?;
+        let xz = XzEncoder::new(new_file, compression_strength);
+        let mut new_builder = Builder::new(xz);
+
+        let mut entry_names = Vec::new();
+        for entry_res in archive.entries()? {
+            let entry = entry_res?;
+            let entry_path = entry.path()?.to_path_buf();
+            entry_names.push(entry_path.clone());
+            let header = entry.header().clone();
+            new_builder.append(&header, entry)?;
+        }
+
+        Ok((
+            TarXz {
+                builder: Some(new_builder),
+                compression_strength,
+            },
+            entry_names,
+        ))
     }
 }
 
