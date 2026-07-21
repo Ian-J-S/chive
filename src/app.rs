@@ -10,6 +10,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use crate::archive::seven_z::SevenZ;
 use crate::archive::zip::Zip;
 use crate::archive::{tar_gz::TarGz, traits::AppArchive};
 
@@ -38,10 +39,11 @@ pub struct InfoMsg {
 pub enum ArchiveType {
     Zip,
     TarGz,
+    SevenZ,
 }
 
 impl ArchiveType {
-    pub const ALL: [Self; 2] = [Self::Zip, Self::TarGz];
+    pub const ALL: [Self; 3] = [Self::Zip, Self::TarGz, Self::SevenZ];
 
     pub fn from_path(path: &Path) -> Result<Self> {
         let name = path
@@ -53,6 +55,8 @@ impl ArchiveType {
             Ok(Self::TarGz)
         } else if name.ends_with(".zip") {
             Ok(Self::Zip)
+        } else if name.ends_with(".7z") {
+            Ok(Self::SevenZ)
         } else {
             Err(anyhow!("Unsupported archive type: {name}"))
         }
@@ -91,6 +95,7 @@ impl Display for ArchiveType {
         let st = match self {
             Self::TarGz => ".tar.gz",
             Self::Zip => ".zip",
+            Self::SevenZ => ".7z",
         };
         write!(f, "{st}")
     }
@@ -109,6 +114,12 @@ pub fn load_archive_from_file(
 
         ArchiveType::TarGz => {
             let (archive, names) = TarGz::load_from_file(path, compression_strength)?;
+
+            Ok((Box::new(archive), names))
+        }
+
+        ArchiveType::SevenZ => {
+            let (archive, names) = SevenZ::load_from_file(path, compression_strength)?;
 
             Ok((Box::new(archive), names))
         }
@@ -139,6 +150,7 @@ pub fn create_archive(kind: ArchiveType, compression_strength: u32) -> Result<Bo
     match kind {
         ArchiveType::Zip => Ok(Box::new(Zip::new(compression_strength)?)),
         ArchiveType::TarGz => Ok(Box::new(TarGz::new(compression_strength)?)),
+        ArchiveType::SevenZ => Ok(Box::new(SevenZ::new(compression_strength)?)),
     }
 }
 
@@ -339,10 +351,7 @@ impl App {
         if let Some(archive) = self.current_archive.as_mut() {
             archive.remove_from_archive(&file_to_remove)?;
         }
-        self.set_info_msg(&format!(
-            "file to remove: {}",
-            file_to_remove.to_string_lossy()
-        ));
+
         self.archive_names.remove(&file_to_remove);
         self.archive_idx = self
             .archive_idx
