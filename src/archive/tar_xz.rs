@@ -9,7 +9,7 @@ use xz2::write::XzEncoder;
 
 use crate::archive::traits::AppArchive;
 
-struct TarXz {
+pub struct TarXz {
     builder: Option<Builder<XzEncoder<NamedTempFile>>>,
     compression_strength: u32,
 }
