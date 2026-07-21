@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use crate::archive::seven_z::SevenZ;
+use crate::archive::tar_xz::TarXz;
 use crate::archive::zip::Zip;
 use crate::archive::{tar_gz::TarGz, traits::AppArchive};
 
@@ -38,12 +39,13 @@ pub struct InfoMsg {
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ArchiveType {
     Zip,
-    TarGz,
     SevenZ,
+    TarGz,
+    TarXz,
 }
 
 impl ArchiveType {
-    pub const ALL: [Self; 3] = [Self::Zip, Self::TarGz, Self::SevenZ];
+    pub const ALL: [Self; 4] = [Self::Zip, Self::SevenZ, Self::TarGz, Self::TarXz];
 
     pub fn from_path(path: &Path) -> Result<Self> {
         let name = path
@@ -57,6 +59,8 @@ impl ArchiveType {
             Ok(Self::Zip)
         } else if name.ends_with(".7z") {
             Ok(Self::SevenZ)
+        } else if name.ends_with(".xz") {
+            Ok(Self::TarXz)
         } else {
             Err(anyhow!("Unsupported archive type: {name}"))
         }
@@ -94,6 +98,7 @@ impl Display for ArchiveType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         let st = match self {
             Self::TarGz => ".tar.gz",
+            Self::TarXz => ".tar.xz",
             Self::Zip => ".zip",
             Self::SevenZ => ".7z",
         };
@@ -114,6 +119,12 @@ pub fn load_archive_from_file(
 
         ArchiveType::TarGz => {
             let (archive, names) = TarGz::load_from_file(path, compression_strength)?;
+
+            Ok((Box::new(archive), names))
+        }
+
+        ArchiveType::TarXz => {
+            let (archive, names) = TarXz::load_from_file(path, compression_strength)?;
 
             Ok((Box::new(archive), names))
         }
@@ -151,6 +162,7 @@ pub fn create_archive(kind: ArchiveType, compression_strength: u32) -> Result<Bo
         ArchiveType::Zip => Ok(Box::new(Zip::new(compression_strength)?)),
         ArchiveType::TarGz => Ok(Box::new(TarGz::new(compression_strength)?)),
         ArchiveType::SevenZ => Ok(Box::new(SevenZ::new(compression_strength)?)),
+        ArchiveType::TarXz => Ok(Box::new(TarXz::new(compression_strength)?)),
     }
 }
 
