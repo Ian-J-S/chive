@@ -106,12 +106,12 @@ fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
 }
 
 fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
-    let browser_files = app.browser_files.clone();
-    let browser_path = app.browser_path.clone();
+    let browser_files = app.browser_state.files.clone();
+    let browser_path = app.browser_state.current_path.clone();
     let archive_names = app.archive_names.clone();
-    let browser_idx = app.browser_idx;
+    let browser_idx = app.browser_state.idx;
     let current_pane = app.current_pane;
-    let show_hidden = app.show_hidden;
+    let show_hidden = app.browser_state.show_hidden;
 
     let browser_list = List::new(build_browser_items(
         &browser_files,
@@ -140,17 +140,18 @@ fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let browser_block = browser_block(current_pane).title_bottom(hint_text);
 
-    app.browser_list_state.select(Some(browser_idx));
+    app.browser_state.list_state.select(Some(browser_idx));
 
     frame.render_stateful_widget(
         browser_list.block(browser_block),
         area,
-        &mut app.browser_list_state,
+        &mut app.browser_state.list_state
     );
 
     if browser_files.len() > area.height as usize {
-        app.browser_scrollbar = app
-            .browser_scrollbar
+        app.browser_state.scrollbar_state = app
+            .browser_state
+            .scrollbar_state
             .content_length(browser_files.len())
             .position(browser_idx);
 
@@ -164,7 +165,7 @@ fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
                 vertical: 1,
                 horizontal: 0,
             }),
-            &mut app.browser_scrollbar,
+            &mut app.browser_state.scrollbar_state,
         );
     }
 }
@@ -361,12 +362,12 @@ fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
     ))));
 
     items.push(ListItem::new(Line::from(Span::styled(
-        format!("cwd: {}", app.browser_path.to_string_lossy()),
+        format!("cwd: {}", app.browser_state.current_path.to_string_lossy()),
         Style::default().fg(Color::White),
     ))));
 
     items.push(ListItem::new(Line::from(Span::styled(
-        format!("Showing hidden? {}", app.show_hidden),
+        format!("Showing hidden? {}", app.browser_state.show_hidden),
         Style::default().fg(Color::White),
     ))));
 

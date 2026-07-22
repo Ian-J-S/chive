@@ -13,6 +13,8 @@ use ratatui::{
 
 mod app;
 mod archive;
+mod archive_state;
+mod browser;
 mod ui;
 mod util;
 use crate::{
@@ -52,7 +54,7 @@ where
     B: Backend,
     B::Error: Send + Sync + 'static,
 {
-    app.browser_files = app.get_browser_files()?; // TODO - should replace with some app.init function
+    app.browser_state.files = app.browser_state.get_files()?;
     loop {
         terminal.draw(|f| ui(f, app))?;
 
@@ -81,18 +83,18 @@ where
 fn handle_browser_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
-        KeyCode::Char('j') | KeyCode::Down => app.update_browser_idx(1),
-        KeyCode::Char('k') | KeyCode::Up => app.update_browser_idx(-1),
-        KeyCode::Char('r') => app.refresh()?,
-        KeyCode::Char(' ') => app.change_browser_dir()?,
-        KeyCode::Char('.') => app.toggle_hidden_files()?,
+        KeyCode::Char('j') | KeyCode::Down => app.browser_state.update_idx(1),
+        KeyCode::Char('k') | KeyCode::Up => app.browser_state.update_idx(-1),
+        KeyCode::Char('r') => app.browser_state.refresh()?,
+        KeyCode::Char(' ') => app.browser_state.change_browser_dir()?,
+        KeyCode::Char('.') => app.browser_state.toggle_hidden_files()?,
         KeyCode::Char('a') => app.add_file_to_archive()?,
         KeyCode::Char('l') => app.load_archive()?,
         KeyCode::Tab => app.toggle_pane(),
         KeyCode::Char('?') => app.toggle_footer(),
         KeyCode::Char('e') => {
             app.extract_archive()?;
-            app.refresh()?;
+            app.browser_state.refresh()?;
         }
         KeyCode::Char('s') => {
             app.input_mode = InputMode::SaveWindow;
@@ -111,11 +113,11 @@ fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Char('?') => app.toggle_footer(),
         KeyCode::Char('e') => {
             app.extract_archive()?;
-            app.refresh()?;
+            app.browser_state.refresh()?;
         }
         KeyCode::Char('c') => {
             app.clear_archive();
-            app.refresh()?;
+            app.browser_state.refresh()?;
         }
         KeyCode::Char('C') => {
             app.clear_archive();
@@ -126,7 +128,7 @@ fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('a') => {
             app.remove_from_archive()?;
-            app.refresh()?;
+            app.browser_state.refresh()?;
         }
         _ => {}
     };
@@ -137,7 +139,7 @@ fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Enter => {
             app.save_archive()?;
-            app.refresh()?;
+            app.browser_state.refresh()?;
             app.input_mode = InputMode::Normal;
         }
         KeyCode::Esc => app.input_mode = InputMode::Normal,

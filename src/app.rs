@@ -1,12 +1,8 @@
 use anyhow::{Result, anyhow};
 use core::fmt;
 use path_clean::PathClean;
-use ratatui::widgets::{ListState, ScrollbarState};
 use std::collections::HashSet;
-use std::env;
 use std::fmt::Display;
-use std::fs::read_dir;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -15,6 +11,7 @@ use crate::archive::tar_xz::TarXz;
 use crate::archive::zip::Zip;
 use crate::archive::{tar_gz::TarGz, traits::AppArchive};
 
+use crate::browser::BrowserState;
 use crate::util::strip_all_extensions;
 
 #[derive(PartialEq, Clone, Copy)]
@@ -138,13 +135,8 @@ pub fn load_archive_from_file(
 }
 
 pub struct App {
-    pub browser_path: PathBuf,
-    pub browser_files: Vec<PathBuf>,
-    pub browser_idx: usize,
-    pub browser_list_state: ListState,
-    pub browser_scrollbar: ScrollbarState,
+    pub browser_state: BrowserState,
     pub current_pane: CurrentPane,
-    pub show_hidden: bool,
     pub archive_names: HashSet<PathBuf>, // Stores unique file names, not full paths
     pub current_archive: Option<Box<dyn AppArchive>>,
     pub archive_idx: usize,
@@ -169,13 +161,8 @@ pub fn create_archive(kind: ArchiveType, compression_strength: u32) -> Result<Bo
 impl App {
     pub fn new() -> Self {
         App {
-            browser_path: std::env::current_dir().unwrap_or(PathBuf::from(".")),
-            browser_files: Vec::new(),
-            browser_idx: 0,
-            browser_list_state: ListState::default(),
-            browser_scrollbar: ScrollbarState::new(0).position(0),
+            browser_state: BrowserState::new(),
             current_pane: CurrentPane::Browser,
-            show_hidden: false,
             archive_names: HashSet::new(),
             current_archive: None,
             archive_idx: 0,
@@ -189,91 +176,9 @@ impl App {
         }
     }
 
-    /// Add files to list displayed in left pane.
-    pub fn get_browser_files(&self) -> io::Result<Vec<PathBuf>> {
-        let mut entries = read_dir(self.browser_path.clone())?
-            .map(|res| res.map(|e| e.path()))
-            .collect::<Result<Vec<_>, io::Error>>()?;
-
-        if !self.show_hidden {
-            entries.retain(|p| {
-                !p.file_name()
-                    .expect("No file name")
-                    .to_string_lossy()
-                    .starts_with(".")
-            });
-        }
-        entries.sort();
-        entries.insert(0, PathBuf::from(".."));
-
-        Ok(entries)
-    }
-
-    /// Get current file under the cursor in the browser pane.
-    fn get_selected_browser(&self) -> PathBuf {
-        self.browser_files[self.browser_idx].clone()
-    }
-
     /// Get current file under cursor in the archive pane.
     fn get_selected_archive(&self) -> Option<PathBuf> {
         self.archive_names.iter().nth(self.archive_idx).cloned()
-    }
-
-    /// Increase or decrease the selected index in the file browser.
-    pub fn update_browser_idx(&mut self, step: isize) {
-        let new_idx = if step >= 0 {
-            self.browser_idx.wrapping_add(step as usize) % self.browser_files.len()
-        } else {
-            ((self.browser_idx as isize + step).rem_euclid(self.browser_files.len() as isize))
-                as usize
-        };
-
-        self.browser_idx = new_idx;
-    }
-
-    /// Try to change directory to the one under the cursor.
-    /// If the selected file isn't a directory, do nothing.
-    pub fn change_browser_dir(&mut self) -> io::Result<()> {
-        let selected_path = self.browser_files[self.browser_idx].clone();
-        let new_path = if selected_path
-            .to_str()
-            .expect("Unable to convert path to string")
-            == ".."
-        {
-            self.browser_path
-                .parent()
-                .expect("No parent dir")
-                .to_path_buf()
-        } else {
-            env::current_dir()?.join(selected_path).clean()
-        };
-
-        if !new_path.is_dir() {
-            return Ok(());
-        }
-
-        self.browser_path = new_path;
-        self.browser_files = self.get_browser_files()?;
-        self.browser_idx = 0;
-
-        Ok(())
-    }
-
-    /// Show or hide hidden files.
-    pub fn toggle_hidden_files(&mut self) -> io::Result<()> {
-        self.show_hidden = !self.show_hidden;
-        self.browser_files = self.get_browser_files()?;
-        Ok(())
-    }
-
-    /// Refresh files in file browser.
-    pub fn refresh(&mut self) -> io::Result<()> {
-        self.browser_files = self.get_browser_files()?;
-
-        // Prevent incorrect index when last file in directory is removed
-        self.browser_idx = self.browser_idx.clamp(0, self.browser_files.len() - 1);
-
-        Ok(())
     }
 
     /// Toggle the current pane between browser and archive
@@ -286,9 +191,9 @@ impl App {
     }
 
     pub fn add_file_to_archive(&mut self) -> Result<()> {
-        let full_path = self.get_selected_browser();
+        let full_path = self.browser_state.get_selected_browser();
         let archive_path = full_path
-            .strip_prefix(self.browser_path.clone())?
+            .strip_prefix(self.browser_state.current_path.clone())?
             .to_path_buf()
             .clean();
 
@@ -331,8 +236,8 @@ impl App {
     pub fn extract_archive(&mut self) -> Result<()> {
         match self.current_pane {
             CurrentPane::Browser => {
-                let archive_path = self.get_selected_browser();
-                let destination = self.browser_path.join(strip_all_extensions(&archive_path));
+                let archive_path = self.browser_state.get_selected_browser();
+                let destination = self.browser_state.current_path.join(strip_all_extensions(&archive_path));
                 
                 let (new_arch, paths) = load_archive_from_file(&archive_path, self.compression_strength)?;
                 self.current_archive = Some(new_arch);
@@ -344,7 +249,7 @@ impl App {
             }
             CurrentPane::Archive => {
                 if let Some(archive) = self.current_archive.as_mut() {
-                    let destination = self.browser_path.join(PathBuf::from("extract"));
+                    let destination = self.browser_state.current_path.join(PathBuf::from("extract"));
                     archive.extract_current(&destination)?;
                 }
             }
@@ -356,8 +261,9 @@ impl App {
     pub fn remove_from_archive(&mut self) -> Result<()> {
         let file_to_remove = match self.current_pane {
             CurrentPane::Browser => self
+                .browser_state
                 .get_selected_browser()
-                .strip_prefix(self.browser_path.clone())?
+                .strip_prefix(self.browser_state.current_path.clone())?
                 .to_path_buf()
                 .clean(),
             CurrentPane::Archive => self
@@ -377,7 +283,7 @@ impl App {
     }
 
     pub fn load_archive(&mut self) -> Result<()> {
-        let archive_path = self.get_selected_browser();
+        let archive_path = self.browser_state.get_selected_browser();
         let (archive, entry_names) =
             load_archive_from_file(&archive_path, self.compression_strength)?;
 
