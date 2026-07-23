@@ -54,8 +54,7 @@ impl BrowserState {
         let new_idx = if step >= 0 {
             self.idx.wrapping_add(step as usize) % self.files.len()
         } else {
-            ((self.idx as isize + step).rem_euclid(self.files.len() as isize))
-                as usize
+            ((self.idx as isize + step).rem_euclid(self.files.len() as isize)) as usize
         };
 
         self.idx = new_idx;
@@ -105,6 +104,4 @@ impl BrowserState {
 
         Ok(())
     }
-
-
 }

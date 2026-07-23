@@ -1,4 +1,8 @@
-use std::{collections::HashSet, fmt::{self, Display}, path::{Path, PathBuf}};
+use std::{
+    collections::HashSet,
+    fmt::{self, Display},
+    path::{Path, PathBuf},
+};
 
 use anyhow::{Result, anyhow};
 use path_clean::PathClean;
@@ -131,7 +135,7 @@ impl ArchiveState {
             current_archive: None,
             archive_idx: 0,
             save_filename: String::from("archive"),
-            compression_strength: 6, // Default compression level
+            compression_strength: 6,        // Default compression level
             archive_type: ArchiveType::Zip, // Default to Zip
         }
     }
@@ -141,11 +145,7 @@ impl ArchiveState {
         self.archive_names.iter().nth(self.archive_idx).cloned()
     }
 
-    pub fn add_file(
-        &mut self,
-        selected_path: &Path,
-        current_path: &Path,
-    ) -> Result<()> {
+    pub fn add_file(&mut self, selected_path: &Path, current_path: &Path) -> Result<()> {
         let archive_path = selected_path
             .strip_prefix(current_path)?
             .to_path_buf()
@@ -258,5 +258,4 @@ impl ArchiveState {
             .saturating_sub(1)
             .max(self.archive_type.min_compression())
     }
-
 }

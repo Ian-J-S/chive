@@ -18,9 +18,7 @@ mod browser;
 mod input;
 mod ui;
 mod util;
-use crate::{
-    app::App, input::handle_input, ui::ui
-};
+use crate::{app::App, input::handle_input, ui::ui};
 
 fn main() -> Result<()> {
     // setup terminal
@@ -49,8 +47,8 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn run_app<B>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()> 
-where 
+fn run_app<B>(terminal: &mut Terminal<B>, app: &mut App) -> Result<()>
+where
     B: Backend,
     B::Error: Send + Sync + 'static,
 {

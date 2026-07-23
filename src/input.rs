@@ -32,7 +32,7 @@ pub fn handle_browser_key(app: &mut App, key: KeyEvent) -> Result<()> {
                 &app.browser_state.get_selected_browser(),
                 &app.browser_state.current_path,
             )?;
-        },
+        }
         KeyCode::Char('e') => {
             app.extract_archive()?;
             app.browser_state.refresh()?;
@@ -106,7 +106,7 @@ pub fn handle_comp_strength_key(app: &mut App, key: KeyEvent) -> Result<()> {
                 "Compression strength set to {}",
                 app.archive_state.compression_strength
             ));
-        },
+        }
         _ => {}
     };
 
@@ -125,7 +125,7 @@ pub fn handle_archive_type_key(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Enter => {
             app.input_mode = InputMode::CompressionStrength;
             app.set_info_msg(&format!("Chose {}", app.archive_state.archive_type));
-        },
+        }
         _ => {}
     }
     Ok(())

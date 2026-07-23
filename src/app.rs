@@ -52,7 +52,9 @@ impl App {
     /// Toggle the current pane between browser and archive
     pub fn toggle_pane(&mut self) {
         self.current_pane = match self.current_pane {
-            CurrentPane::Browser if !self.archive_state.archive_names.is_empty() => CurrentPane::Archive,
+            CurrentPane::Browser if !self.archive_state.archive_names.is_empty() => {
+                CurrentPane::Archive
+            }
             CurrentPane::Archive => CurrentPane::Browser,
             _ => CurrentPane::Browser,
         }
@@ -62,13 +64,20 @@ impl App {
         match self.current_pane {
             CurrentPane::Browser => {
                 let archive_path = self.browser_state.get_selected_browser();
-                let destination = self.browser_state.current_path.join(strip_all_extensions(&archive_path));
-                
-                self.archive_state.extract_archive_file(&archive_path, &destination)?;
+                let destination = self
+                    .browser_state
+                    .current_path
+                    .join(strip_all_extensions(&archive_path));
+
+                self.archive_state
+                    .extract_archive_file(&archive_path, &destination)?;
             }
             CurrentPane::Archive => {
                 if let Some(archive) = self.archive_state.current_archive.as_mut() {
-                    let destination = self.browser_state.current_path.join(PathBuf::from("extract"));
+                    let destination = self
+                        .browser_state
+                        .current_path
+                        .join(PathBuf::from("extract"));
                     archive.extract_current(&destination)?;
                 }
             }

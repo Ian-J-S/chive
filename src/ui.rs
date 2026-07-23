@@ -146,7 +146,7 @@ fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
     frame.render_stateful_widget(
         browser_list.block(browser_block),
         area,
-        &mut app.browser_state.list_state
+        &mut app.browser_state.list_state,
     );
 
     if browser_files.len() > area.height as usize {
@@ -373,7 +373,10 @@ fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
     ))));
 
     items.push(ListItem::new(Line::from(Span::styled(
-        format!("Compression stren: {}", app.archive_state.compression_strength),
+        format!(
+            "Compression stren: {}",
+            app.archive_state.compression_strength
+        ),
         Style::default().fg(Color::White),
     ))));
 }
@@ -439,8 +442,14 @@ fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
     let title = Span::styled("Save archive as", Style::default().dim());
 
     let popup = Paragraph::new(Line::from(vec![
-        Span::styled(app.archive_state.save_filename.as_str(), Style::default().bold()),
-        Span::styled(format!("{}", app.archive_state.archive_type), Style::default().dim()),
+        Span::styled(
+            app.archive_state.save_filename.as_str(),
+            Style::default().bold(),
+        ),
+        Span::styled(
+            format!("{}", app.archive_state.archive_type),
+            Style::default().dim(),
+        ),
     ]))
     .block(
         Block::default()
@@ -479,7 +488,10 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
                 ])),
         )
         .filled_style(Style::new().fg(tailwind::ORANGE.c400))
-        .label(format!("{}/{}", app.archive_state.compression_strength, max_compression))
+        .label(format!(
+            "{}/{}",
+            app.archive_state.compression_strength, max_compression
+        ))
         .ratio(ratio);
 
     frame.render_widget(gauge, popup_area);
