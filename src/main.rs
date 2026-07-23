@@ -88,10 +88,15 @@ fn handle_browser_key(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Char('r') => app.browser_state.refresh()?,
         KeyCode::Char(' ') => app.browser_state.change_browser_dir()?,
         KeyCode::Char('.') => app.browser_state.toggle_hidden_files()?,
-        KeyCode::Char('a') => app.add_file_to_archive()?,
         KeyCode::Char('l') => app.load_archive()?,
         KeyCode::Tab => app.toggle_pane(),
         KeyCode::Char('?') => app.toggle_footer(),
+        KeyCode::Char('a') => {
+            app.archive_state.add_file(
+                &app.browser_state.get_selected_browser(),
+                &app.browser_state.current_path,
+            )?;
+        },
         KeyCode::Char('e') => {
             app.extract_archive()?;
             app.browser_state.refresh()?;
@@ -108,8 +113,8 @@ fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
         KeyCode::Tab => app.toggle_pane(),
-        KeyCode::Char('j') | KeyCode::Down => app.update_archive_idx(1),
-        KeyCode::Char('k') | KeyCode::Up => app.update_archive_idx(-1),
+        KeyCode::Char('j') | KeyCode::Down => app.archive_state.update_archive_idx(1),
+        KeyCode::Char('k') | KeyCode::Up => app.archive_state.update_archive_idx(-1),
         KeyCode::Char('?') => app.toggle_footer(),
         KeyCode::Char('e') => {
             app.extract_archive()?;
@@ -138,16 +143,17 @@ fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
 fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Enter => {
-            app.save_archive()?;
+            let msg = app.archive_state.save_archive()?;
             app.browser_state.refresh()?;
             app.input_mode = InputMode::Normal;
+            app.set_info_msg(&msg);
         }
         KeyCode::Esc => app.input_mode = InputMode::Normal,
         KeyCode::Backspace => {
-            let _ = app.save_filename.pop();
+            let _ = app.archive_state.save_filename.pop();
         }
         // Use other characters to build filename
-        KeyCode::Char(to_insert) => app.enter_save_char(to_insert),
+        KeyCode::Char(to_insert) => app.archive_state.enter_save_char(to_insert),
         _ => {}
     };
 
@@ -156,9 +162,15 @@ fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
 
 fn handle_comp_strength_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
-        KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => app.confirm_compression(),
-        KeyCode::Char('+') => app.increase_comp_strength(),
-        KeyCode::Char('-') => app.decrease_comp_strength(),
+        KeyCode::Char('+') => app.archive_state.increase_comp_strength(),
+        KeyCode::Char('-') => app.archive_state.decrease_comp_strength(),
+        KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => {
+            app.input_mode = InputMode::Normal;
+            app.set_info_msg(&format!(
+                "Compression strength set to {}",
+                app.archive_state.compression_strength
+            ));
+        },
         _ => {}
     };
 
@@ -168,13 +180,16 @@ fn handle_comp_strength_key(app: &mut App, key: KeyEvent) -> Result<()> {
 fn handle_archive_type_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Left | KeyCode::Up | KeyCode::Char('h') | KeyCode::Char('k') => {
-            app.select_previous_archive_type();
+            app.archive_state.archive_type = app.archive_state.archive_type.previous()
         }
         KeyCode::Right | KeyCode::Down | KeyCode::Char('l') | KeyCode::Char('j') => {
-            app.select_next_archive_type();
+            app.archive_state.archive_type = app.archive_state.archive_type.next()
         }
         KeyCode::Esc | KeyCode::Char('q') => app.input_mode = InputMode::Normal, // defaults to zip
-        KeyCode::Enter => app.confirm_archive_type(),
+        KeyCode::Enter => {
+            app.input_mode = InputMode::CompressionStrength;
+            app.set_info_msg(&format!("Chose {}", app.archive_state.archive_type));
+        },
         _ => {}
     }
     Ok(())

@@ -10,7 +10,8 @@ use ratatui::{
     },
 };
 
-use crate::app::{App, ArchiveType, CurrentPane, InputMode};
+use crate::app::{App, CurrentPane, InputMode};
+use crate::archive_state::ArchiveType;
 use std::{
     path::{Path, PathBuf},
     time::Instant,
@@ -108,7 +109,7 @@ fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
 fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
     let browser_files = app.browser_state.files.clone();
     let browser_path = app.browser_state.current_path.clone();
-    let archive_names = app.archive_names.clone();
+    let archive_names = app.archive_state.archive_names.clone();
     let browser_idx = app.browser_state.idx;
     let current_pane = app.current_pane;
     let show_hidden = app.browser_state.show_hidden;
@@ -303,7 +304,7 @@ fn append_browser_debug_info(
 fn build_archive_items(app: &App) -> Vec<ListItem<'static>> {
     let mut archive_items = Vec::new();
 
-    for (i, path) in app.archive_names.iter().enumerate() {
+    for (i, path) in app.archive_state.archive_names.iter().enumerate() {
         let style = archive_item_style(app, i);
         archive_items.push(ListItem::new(Line::from(Span::styled(
             archive_item_label(path),
@@ -319,12 +320,12 @@ fn build_archive_items(app: &App) -> Vec<ListItem<'static>> {
 }
 
 fn archive_item_style(app: &App, index: usize) -> Style {
-    if index == app.archive_idx && app.current_pane == CurrentPane::Archive {
+    if index == app.archive_state.archive_idx && app.current_pane == CurrentPane::Archive {
         Style::default()
             .fg(tailwind::ORANGE.c300)
             .bg(tailwind::SLATE.c900)
             .add_modifier(Modifier::BOLD)
-    } else if index == app.archive_idx && app.current_pane == CurrentPane::Browser {
+    } else if index == app.archive_state.archive_idx && app.current_pane == CurrentPane::Browser {
         Style::default().fg(tailwind::ORANGE.c300)
     } else {
         Style::default().fg(Color::White)
@@ -346,13 +347,13 @@ fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
             .fg(Color::Cyan),
     ))));
 
-    let idx_info = if app.archive_names.is_empty() {
+    let idx_info = if app.archive_state.archive_names.is_empty() {
         "0 / 0".to_string()
     } else {
         format!(
             "idx: {} / {}",
-            app.archive_idx,
-            app.archive_names.len().saturating_sub(1)
+            app.archive_state.archive_idx,
+            app.archive_state.archive_names.len().saturating_sub(1)
         )
     };
 
@@ -372,7 +373,7 @@ fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
     ))));
 
     items.push(ListItem::new(Line::from(Span::styled(
-        format!("Compression stren: {}", app.compression_strength),
+        format!("Compression stren: {}", app.archive_state.compression_strength),
         Style::default().fg(Color::White),
     ))));
 }
@@ -396,7 +397,7 @@ fn browser_block(current_pane: CurrentPane) -> Block<'static> {
 fn archive_block(app: &App) -> Block<'static> {
     let border_style = match app.current_pane {
         CurrentPane::Browser => {
-            if app.archive_names.is_empty() {
+            if app.archive_state.archive_names.is_empty() {
                 Style::default().add_modifier(Modifier::DIM)
             } else {
                 Style::default()
@@ -438,8 +439,8 @@ fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
     let title = Span::styled("Save archive as", Style::default().dim());
 
     let popup = Paragraph::new(Line::from(vec![
-        Span::styled(app.save_filename.as_str(), Style::default().bold()),
-        Span::styled(format!("{}", app.archive_type), Style::default().dim()),
+        Span::styled(app.archive_state.save_filename.as_str(), Style::default().bold()),
+        Span::styled(format!("{}", app.archive_state.archive_type), Style::default().dim()),
     ]))
     .block(
         Block::default()
@@ -463,8 +464,8 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
 
     let title = Span::styled("Choose compression strength", Style::default().dim());
 
-    let max_compression = app.archive_type.max_compression();
-    let ratio = (app.compression_strength as f64) / (max_compression as f64);
+    let max_compression = app.archive_state.archive_type.max_compression();
+    let ratio = (app.archive_state.compression_strength as f64) / (max_compression as f64);
     let gauge = LineGauge::default()
         .block(
             Block::bordered()
@@ -478,7 +479,7 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
                 ])),
         )
         .filled_style(Style::new().fg(tailwind::ORANGE.c400))
-        .label(format!("{}/{}", app.compression_strength, max_compression))
+        .label(format!("{}/{}", app.archive_state.compression_strength, max_compression))
         .ratio(ratio);
 
     frame.render_widget(gauge, popup_area);
@@ -509,7 +510,7 @@ fn render_archive_type_popup(frame: &mut Frame, app: &App, area: Rect) {
         .iter()
         .enumerate()
         .flat_map(|(index, archive_type)| {
-            let selected = *archive_type == app.archive_type;
+            let selected = *archive_type == app.archive_state.archive_type;
 
             let style = if selected {
                 Style::default().add_modifier(Modifier::BOLD | Modifier::REVERSED)
