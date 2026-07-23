@@ -5,7 +5,7 @@ use ratatui::{
     Terminal,
     backend::{Backend, CrosstermBackend},
     crossterm::{
-        event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode, KeyEvent},
+        event::{self, DisableMouseCapture, EnableMouseCapture, Event},
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
@@ -13,11 +13,13 @@ use ratatui::{
 
 mod app;
 mod archive;
+mod archive_state;
+mod browser;
+mod input;
 mod ui;
 mod util;
 use crate::{
-    app::{App, CurrentPane, InputMode},
-    ui::ui,
+    app::App, input::handle_input, ui::ui
 };
 
 fn main() -> Result<()> {
@@ -52,7 +54,7 @@ where
     B: Backend,
     B::Error: Send + Sync + 'static,
 {
-    app.browser_files = app.get_browser_files()?; // TODO - should replace with some app.init function
+    app.browser_state.files = app.browser_state.get_files()?;
     loop {
         terminal.draw(|f| ui(f, app))?;
 
@@ -65,115 +67,7 @@ where
                 // Skip events that are not KeyEventKind::Press
                 continue;
             }
-            match app.input_mode {
-                InputMode::Normal => match app.current_pane {
-                    CurrentPane::Browser => handle_browser_key(app, key)?,
-                    CurrentPane::Archive => handle_archive_key(app, key)?,
-                },
-                InputMode::CompressionStrength => handle_comp_strength_key(app, key)?,
-                InputMode::SaveWindow => handle_save_window_keys(app, key)?,
-                InputMode::ArchiveType => handle_archive_type_key(app, key)?,
-            }
+            handle_input(app, key)?;
         }
     }
-}
-
-fn handle_browser_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
-        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
-        KeyCode::Char('j') | KeyCode::Down => app.update_browser_idx(1),
-        KeyCode::Char('k') | KeyCode::Up => app.update_browser_idx(-1),
-        KeyCode::Char('r') => app.refresh()?,
-        KeyCode::Char(' ') => app.change_browser_dir()?,
-        KeyCode::Char('.') => app.toggle_hidden_files()?,
-        KeyCode::Char('a') => app.add_file_to_archive()?,
-        KeyCode::Char('l') => app.load_archive()?,
-        KeyCode::Tab => app.toggle_pane(),
-        KeyCode::Char('?') => app.toggle_footer(),
-        KeyCode::Char('e') => {
-            app.extract_archive()?;
-            app.refresh()?;
-        }
-        KeyCode::Char('s') => {
-            app.input_mode = InputMode::SaveWindow;
-        }
-        _ => {}
-    };
-    Ok(())
-}
-
-fn handle_archive_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
-        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
-        KeyCode::Tab => app.toggle_pane(),
-        KeyCode::Char('j') | KeyCode::Down => app.update_archive_idx(1),
-        KeyCode::Char('k') | KeyCode::Up => app.update_archive_idx(-1),
-        KeyCode::Char('?') => app.toggle_footer(),
-        KeyCode::Char('e') => {
-            app.extract_archive()?;
-            app.refresh()?;
-        }
-        KeyCode::Char('c') => {
-            app.clear_archive();
-            app.refresh()?;
-        }
-        KeyCode::Char('C') => {
-            app.clear_archive();
-            app.input_mode = InputMode::ArchiveType;
-        }
-        KeyCode::Char('s') => {
-            app.input_mode = InputMode::SaveWindow;
-        }
-        KeyCode::Char('a') => {
-            app.remove_from_archive()?;
-            app.refresh()?;
-        }
-        _ => {}
-    };
-    Ok(())
-}
-
-fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
-        KeyCode::Enter => {
-            app.save_archive()?;
-            app.refresh()?;
-            app.input_mode = InputMode::Normal;
-        }
-        KeyCode::Esc => app.input_mode = InputMode::Normal,
-        KeyCode::Backspace => {
-            let _ = app.save_filename.pop();
-        }
-        // Use other characters to build filename
-        KeyCode::Char(to_insert) => app.enter_save_char(to_insert),
-        _ => {}
-    };
-
-    Ok(())
-}
-
-fn handle_comp_strength_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
-        KeyCode::Enter | KeyCode::Esc | KeyCode::Char('q') => app.confirm_compression(),
-        KeyCode::Char('+') => app.increase_comp_strength(),
-        KeyCode::Char('-') => app.decrease_comp_strength(),
-        _ => {}
-    };
-
-    Ok(())
-}
-
-fn handle_archive_type_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
-        KeyCode::Left | KeyCode::Up | KeyCode::Char('h') | KeyCode::Char('k') => {
-            app.select_previous_archive_type();
-        }
-        KeyCode::Right | KeyCode::Down | KeyCode::Char('l') | KeyCode::Char('j') => {
-            app.select_next_archive_type();
-        }
-        KeyCode::Esc | KeyCode::Char('q') => app.input_mode = InputMode::Normal, // defaults to zip
-        KeyCode::Enter => app.confirm_archive_type(),
-        _ => {}
-    }
-    Ok(())
 }
