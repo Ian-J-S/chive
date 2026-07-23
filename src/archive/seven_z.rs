@@ -1,8 +1,8 @@
 use crate::archive::traits::AppArchive;
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use sevenz_rust2::{
-    decompress, decompress_file, encoder_options::Lzma2Options, ArchiveEntry, ArchiveReader,
-    ArchiveWriter, EncoderConfiguration, Password,
+    ArchiveEntry, ArchiveReader, ArchiveWriter, EncoderConfiguration, Password, decompress,
+    decompress_file, encoder_options::Lzma2Options,
 };
 use std::{
     fs::File,
