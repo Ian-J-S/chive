@@ -17,6 +17,8 @@ use std::{
     time::Instant,
 };
 
+/// Main UI function that defines the two-pane layout
+/// and optional footer
 pub fn ui(frame: &mut Frame, app: &mut App) {
     let title_layout = if app.show_footer {
         Layout::vertical([Constraint::Percentage(90), Constraint::Percentage(10)])
@@ -52,6 +54,8 @@ pub fn ui(frame: &mut Frame, app: &mut App) {
     };
 }
 
+/// Renders a footer with the keybinds displayed.
+/// Shows different keybinds depending on the current pane.
 fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
     let browser_style = Style::default()
         .fg(tailwind::BLUE.c400)
@@ -106,6 +110,9 @@ fn render_footer(frame: &mut Frame, area: Rect, current_pane: &CurrentPane) {
     frame.render_widget(paragraph, area);
 }
 
+/// Renders the files in the current browser directory, highlighting
+/// currently selected file as well as files that have been added 
+/// to the archive.
 fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
     let browser_files = app.browser_state.files.clone();
     let browser_path = app.browser_state.current_path.clone();
@@ -171,12 +178,14 @@ fn render_browser(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
+/// Renders list of archive files.
 fn render_archive(frame: &mut Frame, app: &mut App, area: Rect) {
     let archive_list = List::new(build_archive_items(app));
 
     frame.render_widget(archive_list.block(archive_block(app)), area);
 }
 
+/// Helper function that builds a list of files in the current directory.
 fn build_browser_items(
     browser_files: &[PathBuf],
     archive_names: &std::collections::HashSet<PathBuf>,
@@ -214,6 +223,8 @@ fn build_browser_items(
     browser_items
 }
 
+/// Helper function that decides the style of each list item in
+/// the browser pane.
 fn browser_item_style(
     archive_names: &std::collections::HashSet<PathBuf>,
     browser_path: &Path,
@@ -256,6 +267,7 @@ fn browser_item_style(
     }
 }
 
+/// Helper function to get the name of each file as a string
 fn browser_item_label(path: &Path) -> String {
     if path.to_str().expect("Unable to convert path to string") == ".." {
         path.to_string_lossy().into_owned()
@@ -267,6 +279,7 @@ fn browser_item_label(path: &Path) -> String {
     }
 }
 
+/// Renders additional helpful info for the debug build.
 fn append_browser_debug_info(
     items: &mut Vec<ListItem>,
     browser_idx: usize,
@@ -301,6 +314,7 @@ fn append_browser_debug_info(
     ))));
 }
 
+/// Builds a list of the items in the current archive.
 fn build_archive_items(app: &App) -> Vec<ListItem<'static>> {
     let mut archive_items = Vec::new();
 
@@ -319,6 +333,8 @@ fn build_archive_items(app: &App) -> Vec<ListItem<'static>> {
     archive_items
 }
 
+/// defines the style of the items in the archive pane
+/// based on which of them is under the cursor.
 fn archive_item_style(app: &App, index: usize) -> Style {
     if index == app.archive_state.archive_idx && app.current_pane == CurrentPane::Archive {
         Style::default()
@@ -332,6 +348,7 @@ fn archive_item_style(app: &App, index: usize) -> Style {
     }
 }
 
+/// Converts archive paths into strings
 fn archive_item_label(path: &Path) -> String {
     path.file_name()
         .expect("Path has no file name")
@@ -339,6 +356,8 @@ fn archive_item_label(path: &Path) -> String {
         .into_owned()
 }
 
+/// In debug mode, appends extra information to the bottom of the
+/// archive pane.
 fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
     items.push(ListItem::new(Line::from(Span::styled(
         "Debug Info:",
@@ -381,6 +400,7 @@ fn append_archive_debug_info(items: &mut Vec<ListItem>, app: &App) {
     ))));
 }
 
+/// Defines block styling for browser pane.
 fn browser_block(current_pane: CurrentPane) -> Block<'static> {
     let block = Block::default()
         .title("Browser")
@@ -397,6 +417,7 @@ fn browser_block(current_pane: CurrentPane) -> Block<'static> {
     }
 }
 
+/// Defines block styling for archive pane.
 fn archive_block(app: &App) -> Block<'static> {
     let border_style = match app.current_pane {
         CurrentPane::Browser => {
@@ -417,6 +438,7 @@ fn archive_block(app: &App) -> Block<'static> {
         .borders(Borders::all())
 }
 
+/// Helper to define a centered rectangle for the popup windows.
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     let vertical = Layout::vertical([
         Constraint::Percentage((100 - percent_y) / 2),
@@ -433,6 +455,8 @@ fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
     .split(vertical[1])[1]
 }
 
+/// Renders the save popup for entering the name of the
+/// archive to be created.
 fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
     let popup_area = centered_rect(40, 15, area);
 
@@ -465,6 +489,8 @@ fn render_save_popup(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(popup, popup_area);
 }
 
+/// One of the popups that displays on startup, allows the user to
+/// choose the compression strength of the archive.
 fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
     let popup_area = centered_rect(40, 15, area);
 
@@ -497,6 +523,9 @@ fn render_comp_str_popup(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(gauge, popup_area);
 }
 
+/// Renders the little info message popup in the corner.
+/// Moves the rectangle up and down depending on whether the
+/// footer is being displayed.
 fn render_message_window(frame: &mut Frame, app: &App, msg: &str, area: Rect) {
     let msg_width = msg.len() as u16 + 2;
     let msg_height = 3;
@@ -513,6 +542,8 @@ fn render_message_window(frame: &mut Frame, app: &App, msg: &str, area: Rect) {
     frame.render_widget(par, rect);
 }
 
+/// Displays on startup, allows the user to choose between
+/// the different available archive types.
 fn render_archive_type_popup(frame: &mut Frame, app: &App, area: Rect) {
     let popup_area = centered_rect(40, 15, area);
 

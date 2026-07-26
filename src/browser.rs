@@ -3,6 +3,9 @@ use std::{env, fs::read_dir, io, path::PathBuf};
 use path_clean::PathClean;
 use ratatui::widgets::{ListState, ScrollbarState};
 
+/// Holds the state of the app's browser pane,
+/// such as the current files and the selected
+/// index.
 pub struct BrowserState {
     pub current_path: PathBuf,
     pub files: Vec<PathBuf>,
@@ -24,7 +27,7 @@ impl BrowserState {
         }
     }
 
-    /// Add files to list displayed in left pane.
+    /// Fetch files to list displayed in left pane.
     pub fn get_files(&self) -> io::Result<Vec<PathBuf>> {
         let mut entries = read_dir(self.current_path.clone())?
             .map(|res| res.map(|e| e.path()))
