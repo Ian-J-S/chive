@@ -16,4 +16,5 @@ Allows you to visually build archive files from the terminal.
 7z ☑ \
 zip ☑ \
 tar.gz ☑ \
-tar.xz ☑
+tar.xz ☑ \
+tar.zst ☑
