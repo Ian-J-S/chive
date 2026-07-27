@@ -7,7 +7,7 @@ use std::{
 use anyhow::{Result, anyhow};
 use path_clean::PathClean;
 
-use crate::archive::{seven_z::SevenZ, tar_gz::TarGz, tar_xz::TarXz, traits::AppArchive, zip::Zip};
+use crate::archive::{seven_z::SevenZ, tar_gz::TarGz, tar_xz::TarXz, tar_zst::TarZst, traits::AppArchive, zip::Zip};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ArchiveType {
@@ -15,10 +15,11 @@ pub enum ArchiveType {
     SevenZ,
     TarGz,
     TarXz,
+    TarZst,
 }
 
 impl ArchiveType {
-    pub const ALL: [Self; 4] = [Self::Zip, Self::SevenZ, Self::TarGz, Self::TarXz];
+    pub const ALL: [Self; 5] = [Self::Zip, Self::SevenZ, Self::TarGz, Self::TarXz, Self::TarZst];
 
     /// Determines the proper ArchiveType based on the
     /// extension of the path.
@@ -36,6 +37,8 @@ impl ArchiveType {
             Ok(Self::SevenZ)
         } else if name.ends_with(".xz") {
             Ok(Self::TarXz)
+        } else if name.ends_with(".zst") {
+            Ok(Self::TarZst)
         } else {
             Err(anyhow!("Unsupported archive type: {name}"))
         }
@@ -72,7 +75,10 @@ impl ArchiveType {
     // so I am leaving this function to make it easier to
     // add those later if I want to.
     pub fn max_compression(&self) -> u32 {
-        9
+        match self {
+            Self::TarZst => 19,
+            _ => 9,
+        }
     }
 }
 
@@ -82,6 +88,7 @@ impl Display for ArchiveType {
         let st = match self {
             Self::TarGz => ".tar.gz",
             Self::TarXz => ".tar.xz",
+            Self::TarZst => ".tar.zst",
             Self::Zip => ".zip",
             Self::SevenZ => ".7z",
         };
@@ -114,6 +121,12 @@ pub fn load_archive_from_file(
             Ok((Box::new(archive), names))
         }
 
+        ArchiveType::TarZst => {
+            let (archive, names) = TarZst::load_from_file(path, compression_strength)?;
+
+            Ok((Box::new(archive), names))
+        }
+
         ArchiveType::SevenZ => {
             let (archive, names) = SevenZ::load_from_file(path, compression_strength)?;
 
@@ -129,6 +142,7 @@ pub fn create_archive(kind: ArchiveType, compression_strength: u32) -> Result<Bo
         ArchiveType::TarGz => Ok(Box::new(TarGz::new(compression_strength)?)),
         ArchiveType::SevenZ => Ok(Box::new(SevenZ::new(compression_strength)?)),
         ArchiveType::TarXz => Ok(Box::new(TarXz::new(compression_strength)?)),
+        ArchiveType::TarZst => Ok(Box::new(TarZst::new(compression_strength)?)),
     }
 }
 
