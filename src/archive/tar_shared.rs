@@ -93,10 +93,16 @@ impl<C: TarCompression> Tar<C> {
 
 impl<C: TarCompression> AppArchive for Tar<C> {
     fn add_file_to_archive(&mut self, full_path: &Path, archive_path: &Path) -> Result<()> {
-        self.builder
+        let builder = self
+            .builder
             .as_mut()
-            .ok_or_else(|| anyhow!("archive builder is not initialized"))?
-            .append_path_with_name(full_path, archive_path)?;
+            .ok_or_else(|| anyhow!("archive builder is not initialized"))?;
+
+        if full_path.is_dir() {
+            builder.append_dir_all(archive_path, full_path)?;
+        } else {
+            builder.append_path_with_name(full_path, archive_path)?;
+        }
 
         Ok(())
     }
