@@ -7,7 +7,9 @@ use std::{
 use anyhow::{Result, anyhow};
 use path_clean::PathClean;
 
-use crate::archive::{seven_z::SevenZ, tar_gz::TarGz, tar_xz::TarXz, tar_zst::TarZst, traits::AppArchive, zip::Zip};
+use crate::archive::{
+    AppArchive, seven_z::SevenZ, tar_gz::TarGz, tar_xz::TarXz, tar_zst::TarZst, zip::Zip,
+};
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum ArchiveType {
@@ -19,7 +21,13 @@ pub enum ArchiveType {
 }
 
 impl ArchiveType {
-    pub const ALL: [Self; 5] = [Self::Zip, Self::SevenZ, Self::TarGz, Self::TarXz, Self::TarZst];
+    pub const ALL: [Self; 5] = [
+        Self::Zip,
+        Self::SevenZ,
+        Self::TarGz,
+        Self::TarXz,
+        Self::TarZst,
+    ];
 
     /// Determines the proper ArchiveType based on the
     /// extension of the path.
@@ -146,7 +154,7 @@ pub fn create_archive(kind: ArchiveType, compression_strength: u32) -> Result<Bo
     }
 }
 
-/// Holds the state of the current archive for the 
+/// Holds the state of the current archive for the
 /// main app struct.
 pub struct ArchiveState {
     pub archive_names: HashSet<PathBuf>, // Stores unique file names, not full paths

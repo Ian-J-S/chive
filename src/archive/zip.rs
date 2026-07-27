@@ -1,4 +1,4 @@
-use crate::archive::traits::AppArchive;
+use crate::archive::AppArchive;
 use anyhow::{Result, anyhow};
 use std::{
     fs::File,
