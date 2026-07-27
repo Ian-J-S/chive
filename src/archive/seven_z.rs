@@ -1,4 +1,4 @@
-use crate::archive::traits::AppArchive;
+use crate::archive::AppArchive;
 use anyhow::{Result, anyhow};
 use sevenz_rust2::{
     ArchiveEntry, ArchiveReader, ArchiveWriter, EncoderConfiguration, Password, decompress,

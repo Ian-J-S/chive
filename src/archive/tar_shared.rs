@@ -8,7 +8,7 @@ use anyhow::{Result, anyhow};
 use tar::{Archive, Builder};
 use tempfile::NamedTempFile;
 
-use crate::archive::traits::AppArchive;
+use crate::archive::AppArchive;
 
 pub trait TarEncoder: io::Write {
     fn finish(self) -> Result<NamedTempFile>;
