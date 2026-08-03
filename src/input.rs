@@ -33,6 +33,11 @@ pub fn handle_browser_key(app: &mut App, key: KeyEvent) -> Result<()> {
                 &app.browser_state.current_path,
             )?;
         }
+        KeyCode::Char('A') => {
+            let all_paths = &app.browser_state.files;
+            app.archive_state
+                .add_all(all_paths, &app.browser_state.current_path)?;
+        }
         KeyCode::Char('e') => {
             app.extract_archive()?;
             app.browser_state.refresh()?;

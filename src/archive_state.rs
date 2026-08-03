@@ -210,6 +210,16 @@ impl ArchiveState {
         Ok(())
     }
 
+    pub fn add_all(&mut self, paths: &[PathBuf], current_path: &Path) -> Result<()> {
+        for path in paths {
+            if path == ".." {
+                continue;
+            }
+            self.add_file(path, current_path)?;
+        }
+        Ok(())
+    }
+
     /// Save the currently built/loaded archive.
     pub fn save_archive(&mut self) -> Result<String> {
         let mut archive = self
