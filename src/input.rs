@@ -85,6 +85,7 @@ pub fn handle_save_window_keys(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Enter => {
             let msg = app.archive_state.save_archive()?;
+            app.clear_archive();
             app.browser_state.refresh()?;
             app.input_mode = InputMode::Normal;
             app.set_info_msg(&msg);
