@@ -4,30 +4,26 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent};
 use crate::app::{App, CurrentPane, InputMode};
 
 pub fn handle_input(app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
+    match app.input_mode {
         // Keybinds that function the same across app modes
-        KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
-        KeyCode::Char('C') => {
-            app.clear_archive();
-            app.input_mode = InputMode::ArchiveType;
-        }
-        KeyCode::Char('?') => app.toggle_footer(),
-
-        // Mode-dependent
-        _ => match app.input_mode {
-            InputMode::Normal => match key.code {
-                // Some keys in normal mode can be pane-independent
-                KeyCode::Char('s') => app.input_mode = InputMode::SaveWindow,
-                KeyCode::Tab => app.toggle_pane(),
-                _ => match app.current_pane {
-                    CurrentPane::Browser => handle_browser_key(app, key)?,
-                    CurrentPane::Archive => handle_archive_key(app, key)?,
-                },
+        InputMode::Normal => match key.code {
+            KeyCode::Char('q') | KeyCode::Esc => app.should_quit = true,
+            KeyCode::Char('C') => {
+                app.clear_archive();
+                app.input_mode = InputMode::ArchiveType;
+            }
+            KeyCode::Char('?') => app.toggle_footer(),
+            // Some keys in normal mode can be pane-independent
+            KeyCode::Char('s') => app.input_mode = InputMode::SaveWindow,
+            KeyCode::Tab => app.toggle_pane(),
+            _ => match app.current_pane {
+                CurrentPane::Browser => handle_browser_key(app, key)?,
+                CurrentPane::Archive => handle_archive_key(app, key)?,
             },
-            InputMode::CompressionStrength => handle_comp_strength_key(app, key)?,
-            InputMode::SaveWindow => handle_save_window_keys(app, key)?,
-            InputMode::ArchiveType => handle_archive_type_key(app, key)?,
         },
+        InputMode::CompressionStrength => handle_comp_strength_key(app, key)?,
+        InputMode::SaveWindow => handle_save_window_keys(app, key)?,
+        InputMode::ArchiveType => handle_archive_type_key(app, key)?,
     }
     Ok(())
 }
